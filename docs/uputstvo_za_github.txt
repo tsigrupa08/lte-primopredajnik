@@ -1,0 +1,157 @@
+# ============================================================================
+#  GIT / GITHUB WORKFLOW – VAŽNO ZA SVE ČLANOVE TIMA
+#  (jasna i kratka uputstva kako raditi sa GitHub-om u ovom projektu)
+# ============================================================================
+
+# =============================================================================
+# 0. KADA PRVI PUT RADITE NA PROJEKTU 
+# =============================================================================
+# 1) Otvoriti PowerShell / Command Prompt
+# 2) Preći u folder gdje držite projekte, npr:
+#
+#       cd C:\Projects
+#
+# 3) Klonirati shared repozitorij:
+#
+#       git clone https://github.com/tsigrupa08/lte-primopredajnik.git
+#
+# ➜ Važno: Svako radi sa SVOJIM GitHub nalogom 
+#
+# 4) Ući u projekat:
+#
+#       cd lte-primopredajnik
+#
+# 5) Preći na razvojnu granu:
+#
+#       git checkout develop
+#
+# 6) Otvoriti projekat u VS Code:
+#
+#       code .
+#
+# =============================================================================
+
+
+# =============================================================================
+# 1. PRIJE SVAKOG POČETKA RADA (OBAVEZNO svaki dan)
+# =============================================================================
+# U VS Code terminalu: Terminal → New Terminal
+#
+# 1) Provjeriti granu:
+#       git branch
+#
+# 2) Preći na develop:
+#       git checkout develop
+#
+# 3) Povuci najnovije promjene:
+#       git pull origin develop
+#
+# ➜ Ovo sprječava konflikte i osigurava da svi rade na svježoj verziji koda.
+# =============================================================================
+
+
+# =============================================================================
+# 2. KREIRANJE VLASTITE FEATURE GRANE ZA TASK (UVIJEK!!!)
+# =============================================================================
+# Svaki task mora imati svoju granu!
+# NIKADA ne raditi direktno na develop ili main.
+#
+# 1) Početi sa develop grane:
+#       git checkout develop
+#       git pull origin develop
+#
+# 2) Napraviti novu granu:
+#       git checkout -b feature/ime-task-a
+#
+# Primjeri:
+#       feature/pss-sequence
+#       feature/resource-grid
+#       feature/tests-pss-grid
+# =============================================================================
+
+
+# =============================================================================
+# 3. KAD NAPIŠETE KOD
+# =============================================================================
+# 1) Provjeriti status fajlova:
+#       git status
+#
+# 2) Dodati izmjene:
+#       git add .
+#
+# 3) Napraviti commit:
+#       git commit -m "Opis promjene"
+#
+# 4) Pushati granu na GitHub:
+#       git push -u origin feature/ime-task-a
+#
+# (Sljedeći put za istu granu: samo 'git push' bez -u)
+# =============================================================================
+
+
+# =============================================================================
+# 4. KREIRANJE PULL REQUESTA (PR)
+# =============================================================================
+# Nakon što ste pushali svoju feature granu:
+# (GitHub će ponekad odmah ponuditi žuti baner “Create Pull Request”)
+#
+# Ako ne:
+# 1) Otvoriti GitHub → repo → Pull Requests
+# 2) Kliknuti: New Pull Request 
+# 3) base branch  = develop
+# 4) compare      = feature/ime-task-a
+#
+# ➜ Nikada PR → main !!!
+# =============================================================================
+
+
+# =============================================================================
+# 5. AKO SE POJAVI GREŠKA SA LOGINOM (permission denied)
+# =============================================================================
+# Poruka izgleda ovako:
+#     "Permission denied to <nečiji_username>"
+#
+# Ovo znači:
+#     Git pokušava da koristi STARI login (npr. neki drugi GitHub nalog
+#     koji je ranije bio ulogovan na računaru).
+#
+# RJEŠENJE:
+# 1) Control Panel → User Accounts → Credential Manager
+# 2) Windows Credentials
+# 3) Generic Credentials
+# 4) Naći: git:https://github.com
+# 5) Kliknuti: Ukloni (Delete)
+#
+# 6) Ponovo pokrenuti:
+#       git push
+#
+# Git će tada tražiti login:
+#       username: VAŠ GitHub username 
+#       password: VAŠ Personal Access Token (PAT)
+#
+# ➜ Svako koristi svoj PAT. Ne koristite tuđi.
+# ➜ Ako vas preusmjeri u browser, logujte se preko svog GitHub naloga.
+# =============================================================================
+
+
+# =============================================================================
+# 6. ZABRANJENO (nikad ovo NE raditi!)
+# =============================================================================
+# ✗ Direktan push na develop
+# ✗ Direktan push na main
+# ✗ Raditi na develop grani bez kreiranja feature grane
+# ✗ Pravljenje feature grane bez svježeg 'git pull'
+# =============================================================================
+
+
+# =============================================================================
+# 7. KRATAK REZIME (za brzo podsjećanje)
+# =============================================================================
+#     1) git checkout develop
+#     2) git pull origin develop
+#     3) git checkout -b feature/ime-task-a
+#     4) implementacija koda
+#     5) git add . && git commit -m "opis"
+#     6) git push
+#     7) PR → develop
+# =============================================================================
