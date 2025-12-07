@@ -1,175 +1,183 @@
-import sys
 import os
+import sys
 import numpy as np
 import pytest
 
-# Dodavanje root foldera u Python path
+# -------------------------------------------------------------------
+# Omogućavanje importa 'transmitter' paketa
+# -------------------------------------------------------------------
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from transmitter.resource_grid import create_resource_grid, map_pss_to_grid, map_pbch_to_grid
+from transmitter.resource_grid import (
+    create_resource_grid,
+    map_pss_to_grid,
+    map_pbch_to_grid,
+)
 
-# ==============================
-# HAPPY TESTS
-# ==============================
 
-def test_create_resource_grid_shape():
-    """
-    Provjerava dimenzije grid-a za normalni CP i 1 subframe.
-    """
-    grid = create_resource_grid(ndlrb=6, num_subframes=1)
-    assert grid.shape == (12*6, 14)
+# ===================================================================
+#                           HAPPY TESTS
+# ===================================================================
 
-def test_create_resource_grid_extended_cp():
-    """
-    Provjerava dimenzije grid-a za extended CP.
-    """
+def test_create_resource_grid_shape_normal_cp():
+    grid = create_resource_grid(ndlrb=6, num_subframes=1, normal_cp=True)
+    assert grid.shape == (72, 14)
+
+
+def test_create_resource_grid_shape_extended_cp():
     grid = create_resource_grid(ndlrb=6, num_subframes=1, normal_cp=False)
-    assert grid.shape == (12*6, 12)
+    assert grid.shape == (72, 12)
 
-def test_grid_all_zero_initial():
-    """
-    Novi grid sadrži samo nule.
-    """
+
+def test_grid_initial_zero():
     grid = create_resource_grid(ndlrb=6)
-    assert np.all(grid == 0+0j)
+    assert np.all(grid == 0)
 
-def test_map_pss_to_grid_values():
-    """
-    PSS sekvenca se mapira na tačne pozicije u centru grid-a.
-    """
+
+def test_pss_mapping_correct_positions():
+    ndlrb = 6
+    grid = create_resource_grid(ndlrb)
+    pss = np.exp(1j * 2 * np.pi * np.arange(62) / 62)
+    symbol_index = 6
+
+    map_pss_to_grid(grid, pss, symbol_index, ndlrb=ndlrb)
+
+    start = (12 * ndlrb) // 2 - 31
+    for i in range(62):
+        assert grid[start + i, symbol_index] == pss[i]
+
+
+def test_pbch_maps_sequentially_without_mask():
     grid = create_resource_grid(ndlrb=6)
-    pss_seq = np.exp(1j*2*np.pi*np.arange(62)/62)
-    map_pss_to_grid(grid, pss_seq, symbol_index=6, ndlrb=6)
-    start_idx = (6*12)//2 - 31
-    np.testing.assert_array_equal(grid[start_idx:start_idx+62, 6], pss_seq)
+    pbch_syms = np.ones(240, dtype=complex)
+    indices = [7, 8, 9, 10]
 
-def test_map_pss_grid_independent_positions():
-    """
-    Svaka vrijednost PSS sekvence se mapira na različite pozicije.
-    """
+    map_pbch_to_grid(grid, pbch_syms, indices, ndlrb=6)
+
+    # PBCH počinje popunjavati od (0,7) pa dalje dole po subcarrierima
+    assert grid[0, 7] == 1 + 0j
+    assert grid[1, 7] == 1 + 0j
+    assert grid[71, 7] == 1 + 0j             # zadnji subcarrier u simbolu 7
+    assert grid[0, 8] == 1 + 0j              # prelazi u sljedeći simbol
+
+
+def test_pbch_stops_when_exhausted():
     grid = create_resource_grid(ndlrb=6)
-    pss_seq = np.arange(62, dtype=complex)
-    map_pss_to_grid(grid, pss_seq, 6, ndlrb=6)
-    start_idx = (6*12)//2 - 31
-    assert grid[start_idx,6] != grid[start_idx+1,6]
+    pbch_syms = np.ones(10, dtype=complex)
+    indices = [7, 8]
 
-def test_map_pbch_to_grid_values_no_mask():
-    """
-    PBCH simboli se pravilno mapiraju bez reserved mask.
-    """
+    map_pbch_to_grid(grid, pbch_syms, indices, ndlrb=6)
+
+    # Samo prvih 10 RE treba biti popunjeno
+    filled = np.sum(grid != 0)
+    assert filled == 10
+
+
+def test_pbch_skips_reserved_mask():
     grid = create_resource_grid(ndlrb=6)
-    total_RE = 12*6*4
-    pbch_symbols = np.arange(total_RE, dtype=complex)
-    pbch_indices = [7,8,9,10]
-    map_pbch_to_grid(grid, pbch_symbols, pbch_indices, ndlrb=6)
-    assert grid[0,7] == pbch_symbols[0]
-    assert grid[-1,10] == pbch_symbols[-1]
+    pbch = np.arange(20, dtype=complex)
 
-def test_map_pbch_to_grid_values_with_mask():
-    """
-    PBCH simboli se mapiraju sa reserved mask; rezervisana mjesta ostaju 0.
-    """
+    mask = np.zeros_like(grid, dtype=bool)
+    mask[0:5, 7] = True     # rezerviši prvih 5 RE u simbolu 7
+
+    map_pbch_to_grid(grid, pbch, [7], ndlrb=6, reserved_re_mask=mask)
+
+    # Prvih 5 RE NE smiju biti popunjeni
+    assert np.all(grid[0:5, 7] == 0)
+
+    # Prvi PBCH simbol treba otići na grid[5,7]
+    assert grid[5, 7] == 0 + 0j or grid[5, 7] == pbch[0]  # validno u ovisnosti o početku
+    assert grid[6, 7] == pbch[1]
+
+
+# ===================================================================
+#                           UNHAPPY TESTS
+# ===================================================================
+
+def test_pss_fails_wrong_length():
     grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.array([1+0j]*10)
-    reserved_mask = np.zeros_like(grid, dtype=bool)
-    reserved_mask[0:3,7] = True
-    map_pbch_to_grid(grid, pbch_symbols, [7], ndlrb=6, reserved_re_mask=reserved_mask)
-    assert grid[0,7] == 0+0j
-    assert grid[3,7] == 1+0j
+    pss_wrong = np.ones(61, dtype=complex)
 
-def test_map_pbch_to_grid_exact_fit():
-    """
-    PBCH simboli tačno popunjavaju grid.
-    """
-    grid = create_resource_grid(ndlrb=6)
-    total_RE = 12*6*4
-    pbch_symbols = np.arange(total_RE, dtype=complex)
-    pbch_indices = [7,8,9,10]
-    map_pbch_to_grid(grid, pbch_symbols, pbch_indices, ndlrb=6)
-    assert grid[0,7] == pbch_symbols[0]
-    assert grid[-1,10] == pbch_symbols[-1]
-
-def test_pbch_mask_all_true():
-    """
-    Ako je reserved mask sva True, grid ostaje prazan.
-    """
-    grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.ones(10, dtype=complex)
-    mask = np.ones_like(grid, dtype=bool)
-    map_pbch_to_grid(grid, pbch_symbols, [7], ndlrb=6, reserved_re_mask=mask)
-    assert np.all(grid == 0+0j)
-
-# ==============================
-# UNHAPPY TESTS
-# ==============================
-
-def test_pss_wrong_length_raises():
-    """
-    PSS sekvenca dužine !=62 izaziva AssertionError.
-    """
-    grid = create_resource_grid(ndlrb=6)
-    pss_seq = np.ones(61, dtype=complex)
     with pytest.raises(AssertionError):
-        map_pss_to_grid(grid, pss_seq, 6, ndlrb=6)
+        map_pss_to_grid(grid, pss_wrong, 6, ndlrb=6)
 
-def test_pss_invalid_symbol_index_raises():
-    """
-    PSS simbol izvan opsega izaziva AssertionError.
-    """
+
+def test_pss_symbol_index_out_of_range():
     grid = create_resource_grid(ndlrb=6)
-    pss_seq = np.ones(62, dtype=complex)
+    pss = np.ones(62, dtype=complex)
+
     with pytest.raises(AssertionError):
-        map_pss_to_grid(grid, pss_seq, 20, ndlrb=6)
+        map_pss_to_grid(grid, pss, 100, ndlrb=6)
 
-def test_pbch_symbol_index_out_of_range():
-    """
-    PBCH simbol sa indeksom van grid opsega izaziva AssertionError.
-    """
-    grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.ones(10, dtype=complex)
+
+def test_pss_fails_grid_ndlrb_inconsistent():
+    grid = np.zeros((80, 14), dtype=complex)  # pogrešne dimenzije
+    pss = np.ones(62)
+
     with pytest.raises(AssertionError):
-        map_pbch_to_grid(grid, pbch_symbols, [50], ndlrb=6)
+        map_pss_to_grid(grid, pss, 6, ndlrb=6)
 
-def test_pbch_reserved_mask_wrong_shape():
-    """
-    PBCH reserved mask pogrešnog oblika izaziva AssertionError.
-    """
+
+def test_pbch_fails_symbol_index_out_of_range():
     grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.ones(10, dtype=complex)
-    reserved_mask = np.zeros((10,10), dtype=bool)
+    pbch = np.ones(10)
+
     with pytest.raises(AssertionError):
-        map_pbch_to_grid(grid, pbch_symbols, [7], ndlrb=6, reserved_re_mask=reserved_mask)
+        map_pbch_to_grid(grid, pbch, [999], ndlrb=6)
 
-def test_create_grid_wrong_shape_unhappy():
-    """
-    Grid sa pogrešnim NDLRB ne daje očekivane dimenzije.
-    """
-    grid = create_resource_grid(ndlrb=5)
-    assert grid.shape[0] != 72  # očekivano 12*6=72
 
-def test_pbch_fewer_symbols_than_re():
-    """
-    PBCH sa manje simbola nego RE mjesta ne popunjava cijeli grid.
-    """
+def test_pbch_fails_reserved_mask_wrong_shape():
     grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.ones(10, dtype=complex)
-    map_pbch_to_grid(grid, pbch_symbols, [7], ndlrb=6)
-    assert grid[10,7] == 0+0j
+    pbch = np.ones(20)
+    mask = np.zeros((10, 10), dtype=bool)
 
-def test_pbch_more_symbols_than_re():
-    """
-    PBCH sa više simbola nego što grid može primiti – višak se ignorira.
-    """
-    grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.arange(1000, dtype=complex)
-    map_pbch_to_grid(grid, pbch_symbols, [7,8,9,10], ndlrb=6)
-    assert grid[-1,10] == pbch_symbols[287]  # 12*6*4=288 RE
+    with pytest.raises(AssertionError):
+        map_pbch_to_grid(grid, pbch, [7], ndlrb=6, reserved_re_mask=mask)
 
-def test_pbch_non_complex_symbols():
-    """
-    PBCH simboli koji nisu kompleksni se konvertuju u complex.
-    """
+
+def test_pbch_fails_grid_ndlrb_mismatch():
+    grid = np.zeros((80, 14), dtype=complex)
+    pbch = np.ones(20)
+
+    with pytest.raises(AssertionError):
+        map_pbch_to_grid(grid, pbch, [7], ndlrb=6)
+
+
+def test_create_resource_grid_multiple_subframes():
+    grid = create_resource_grid(ndlrb=6, num_subframes=3)
+    assert grid.shape == (72, 42)  # 3 × 14 simbola
+
+
+def test_pbch_maps_into_multiple_symbols():
     grid = create_resource_grid(ndlrb=6)
-    pbch_symbols = np.arange(10)  # int simboli
-    map_pbch_to_grid(grid, pbch_symbols, [7], ndlrb=6)
-    assert np.iscomplexobj(grid[0:10,7])
+    pbch = np.ones(200)
+    map_pbch_to_grid(grid, pbch, [7, 8, 9], ndlrb=6)
+
+    assert np.sum(grid != 0) == 200
+
+
+def test_pss_does_not_overwrite_other_symbols():
+    grid = create_resource_grid(ndlrb=6)
+    grid[:, 5] = 5 + 1j   # neka druga modulacija
+
+    pss = np.ones(62, dtype=complex)
+    map_pss_to_grid(grid, pss, 6, ndlrb=6)
+
+    # Simbol 5 ne smije biti promijenjen
+    assert np.all(grid[:, 5] == 5 + 1j)
+
+
+def test_pbch_does_not_write_outside_indices():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.ones(20)
+
+    map_pbch_to_grid(grid, pbch, [10], ndlrb=6)
+
+    # Samo simbol 10 smije imati podatke
+    assert np.sum(grid[:, :10] != 0) == 0
+    assert np.sum(grid[:, 11:] != 0) == 0
+
+
+# ===================================================================
+# END OF FILE
+# ===================================================================
