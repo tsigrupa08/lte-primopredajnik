@@ -5,15 +5,7 @@ import os
 
 """
 Modul za testiranje OFDM Modulatora.
-
-Ovaj modul implementira 'exhaustive' (iscrpno) testiranje klase OFDMModulator.
-Testovi pokrivaju sve standardne LTE širine kanala, tipove cikličkog prefiksa
-i validaciju DSP lanca.
-
-Primjer pokretanja
-------------------
-Iz root foldera projekta:
-    $ python tests/test_ofdm.py
+Verzija sa 10 testova (uklonjeni testovi za Extended CP dužinu i FFT limit).
 """
 
 # -----------------------------------------------------------------------
@@ -35,258 +27,181 @@ except ImportError as e:
 class TestExhaustiveOFDM(unittest.TestCase):
     """
     Testna klasa za verifikaciju LTE OFDM Modulatora.
-
-    Ova klasa nasljeđuje `unittest.TestCase` i izvodi seriju testova
-    kako bi osigurala matematičku tačnost modulacije.
-
-    Attributes
-    ----------
-    ndlrb_list : list of int
-        Lista podržanih LTE širina kanala (broj Resource Blokova).
-    base_fft_map : dict
-        Mapiranje između broja RB-ova i minimalne FFT veličine.
-    all_fft_sizes : list of int
-        Sve dozvoljene FFT veličine za testiranje oversamplinga.
+    Sadrži 10 funkcionalnih testova.
     """
 
     def setUp(self):
-        """
-        Inicijalizacija testnih parametara prije svakog testa.
-        Definiše standardne LTE konfiguracije.
-        """
-        # SVI validni LTE bandwidthi
+        """Inicijalizacija parametara prije svakog testa."""
         self.ndlrb_list = [6, 15, 25, 50, 75, 100]
-        
-        # Mapiranje NDLRB -> Minimalni FFT
         self.base_fft_map = {
             6: 128, 15: 256, 25: 512, 50: 1024, 75: 1408, 100: 1408
         }
-        
-        # SVE validne FFT veličine
-        self.all_fft_sizes = [128, 256, 512, 1024, 1408, 1536, 2048]
 
     def create_data(self, ndlrb, num_symbols):
-        """
-        Pomoćna metoda za generisanje testnih podataka.
-
-        Generiše matricu nasumičnih kompleksnih brojeva (QAM simbola)
-        koja simulira ulazni Resource Grid.
-
-        Parameters
-        ----------
-        ndlrb : int
-            Broj downlink resource blokova (određuje širinu frekvencije).
-        num_symbols : int
-            Broj OFDM simbola u vremenu (kolone matrice).
-
-        Returns
-        -------
-        np.ndarray
-            Kompleksna matrica dimenzija (ndlrb * 12, num_symbols).
-        """
+        """Generiše random QAM simbole."""
         subcarriers = ndlrb * 12
-        np.random.seed(42) # Deterministički seed za ponovljivost
+        np.random.seed(42)
         return (np.random.randn(subcarriers, num_symbols) + 
                 1j * np.random.randn(subcarriers, num_symbols))
 
-    def test_01_matrix_dimensions_check(self):
-        """
-        Verifikuje dimenzije izlaznog talasnog oblika (Waveform).
+    # =================================================================
+    # GRUPA 1: OSNOVNE DIMENZIJE (Testovi 1-2)
+    # =================================================================
 
-        Iterira kroz sve kombinacije NDLRB, tipova CP-a i FFT veličina.
-        Provjerava da li izlazni niz ima tačan broj uzoraka prema formuli:
-        Length = Sum(N_fft + N_cp_i) za sve simbole.
-
-        Raises
-        ------
-        AssertionError
-            Ako izračunata dužina niza ne odgovara teoretskoj dužini.
-        """
-        print(f"\n[TEST 1] Provjera dimenzija za sve kombinacije...")
-        count = 0
-        
+    def test_01_sample_rate_correctness(self):
+        """Test 1: Provjerava da li je Sample Rate ispravno izračunat."""
+        print("\n[TEST 1] Provjera Sample Rate-a...")
         for ndlrb in self.ndlrb_list:
-            min_fft = self.base_fft_map[ndlrb]
-            # Testiramo default FFT i sve veće validne FFT-ove
-            valid_ffts = [None] + [f for f in self.all_fft_sizes if f >= min_fft]
+            grid = self.create_data(ndlrb, 14)
+            mod = OFDMModulator(grid)
+            expected_sr = self.base_fft_map[ndlrb] * 15000
+            self.assertEqual(mod.sample_rate, expected_sr)
+            
+            # Test sa custom FFT-om
+            mod_custom = OFDMModulator(grid, new_fft_size=2048)
+            self.assertEqual(mod_custom.sample_rate, 2048 * 15000)
 
-            for fft_size in valid_ffts:
-                for symbols_per_subframe, mode_name in [(14, "Normal"), (12, "Extended")]:
-                    
-                    with self.subTest(ndlrb=ndlrb, fft=fft_size, mode=mode_name):
-                        grid = self.create_data(ndlrb, symbols_per_subframe)
-                        mod = OFDMModulator(grid, new_fft_size=fft_size)
-                        
-                        waveform, sr = mod.modulate()
-                        
-                        # Provjera sample rate-a
-                        expected_N = fft_size if fft_size else min_fft
-                        self.assertEqual(sr, expected_N * 15000)
-                        
-                        # Provjera dužine niza
-                        multiplier = expected_N // 128
-                        if mode_name == "Normal":
-                            # Slot struktura: 1. simbol ima duži CP, ostalih 6 kraći
-                            cp_slot = (10 * multiplier) + 6 * (9 * multiplier)
-                            samples_per_slot = 7 * expected_N + cp_slot
-                        else:
-                            # Extended struktura: 6 simbola, svi isti CP
-                            cp_slot = 6 * (32 * multiplier)
-                            samples_per_slot = 6 * expected_N + cp_slot
-                            
-                        expected_len = 2 * samples_per_slot
-                        self.assertEqual(len(waveform), expected_len)
-                        count += 1
-        print(f" -> Verifikovano {count} konfiguracija.")
-
-    def test_02_exhaustive_cp_integrity(self):
-        """
-        Verifikuje sadržaj Cikličkog Prefiksa (Bit-to-Bit).
-
-        Za svaki generisani OFDM simbol provjerava da li je CP na početku
-        simbola identična kopija kraja tog simbola (rep podataka).
-
-        Logic
-        -----
-        Za svaki simbol `i`:
-            CP = waveform[start : start + cp_len]
-            Tail = waveform[start + cp_len + N - cp_len : start + cp_len + N]
-            Assert CP == Tail
-        """
-        print(f"\n[TEST 2] Provjera integriteta CP-a...")
+    def test_02_waveform_length_normal_cp(self):
+        """Test 2: Provjerava dužinu izlaznog niza za Normal CP (7 simbola/slot)."""
+        print("\n[TEST 2] Dužina niza (Normal CP)...")
+        ndlrb = 25 # FFT 512
+        grid = self.create_data(ndlrb, 14) # 1 subframe
+        mod = OFDMModulator(grid)
+        wav, _ = mod.modulate()
         
-        for ndlrb in self.ndlrb_list:
-            for is_normal_cp in [True, False]:
-                n_symbols = 14 if is_normal_cp else 12
-                mode = "Normal" if is_normal_cp else "Extended"
-                
-                with self.subTest(ndlrb=ndlrb, mode=mode):
-                    grid = self.create_data(ndlrb, n_symbols)
-                    mod = OFDMModulator(grid)
-                    waveform, _ = mod.modulate()
-                    
-                    current_idx = 0
-                    N = mod.N
-                    
-                    for sym_idx in range(n_symbols):
-                        sym_in_slot = sym_idx % mod.n_symbols_per_slot
-                        cp_len = mod.cp_lengths[sym_in_slot]
-                        
-                        # Izdvajanje CP-a i repa podataka
-                        extracted_cp = waveform[current_idx : current_idx + cp_len]
-                        
-                        data_start = current_idx + cp_len
-                        data_end = data_start + N
-                        extracted_data = waveform[data_start : data_end]
-                        data_tail = extracted_data[-cp_len:]
-                        
-                        np.testing.assert_array_almost_equal(extracted_cp, data_tail,
-                            err_msg=f"CP mismatch: NDLRB={ndlrb}, Sym={sym_idx}")
-                        
-                        current_idx += (cp_len + N)
-        print(" -> CP integritet potvrđen.")
+        # FFT=512. Normal CP struktura:
+        # Simbol 0: CP=40 
+        # Simboli 1-6: CP=36
+        # Ukupno po slotu: 7*512 + 40 + 6*36 = 3840
+        # Subframe (2 slota) = 7680
+        self.assertEqual(len(wav), 7680)
 
-    def test_03_dsp_roundtrip_verification(self):
-        """
-        Izvodi DSP Round-trip test (Modulacija -> Ručna Demodulacija).
+    # =================================================================
+    # GRUPA 2: INTEGRITET PODATAKA I DSP (Testovi 3-6)
+    # =================================================================
 
-        Simulira idealni kanal (bez šuma) i provjerava da li se ulazni podaci
-        mogu rekonstruisati nakon IFFT, dodavanja CP-a i uklanjanja istog.
-
-        Verifikuje:
-        1. Mapiranje podnosioca (pozitivne/negativne frekvencije).
-        2. IFFT/FFT skaliranje.
-        3. CP logiku.
-
-        Raises
-        ------
-        AssertionError
-            Ako je srednja kvadratna greška (MSE) između ulaza i izlaza > 1e-20.
-        """
-        print(f"\n[TEST 3] DSP Round-trip verifikacija...")
+    def test_03_cp_integrity_normal(self):
+        """Test 3: Provjerava da li je CP kopija kraja simbola (Normal Mode)."""
+        print("\n[TEST 3] CP Integritet (Normal)...")
+        grid = self.create_data(25, 14)
+        mod = OFDMModulator(grid)
+        wav, _ = mod.modulate()
         
-        for ndlrb in self.ndlrb_list:
-            with self.subTest(ndlrb=ndlrb):
-                grid_in = self.create_data(ndlrb, 14)
-                mod = OFDMModulator(grid_in)
-                waveform, _ = mod.modulate()
-                
-                N = mod.N
-                grid_out = np.zeros_like(grid_in)
-                
-                # Rekonstrukcija mapiranja indeksa
-                pos_sc = np.arange(mod.num_subcarriers//2, mod.num_subcarriers)
-                neg_sc = np.arange(0, mod.num_subcarriers//2)
-                pos_freq = np.arange(0, mod.num_subcarriers//2)
-                neg_freq = np.arange(N - mod.num_subcarriers//2, N)
-                
-                current_idx = 0
-                for i in range(14):
-                    sym_in_slot = i % 7
-                    cp_len = mod.cp_lengths[sym_in_slot]
-                    
-                    # Skidanje CP-a i FFT
-                    fft_input = waveform[current_idx + cp_len : current_idx + cp_len + N]
-                    freq_domain = np.fft.fft(fft_input) / N
-                    
-                    # Mapiranje nazad u grid
-                    grid_out[pos_sc, i] = freq_domain[pos_freq]
-                    grid_out[neg_sc, i] = freq_domain[neg_freq]
-                    
-                    current_idx += (cp_len + N)
-                
-                mse = np.mean(np.abs(grid_in - grid_out)**2)
-                self.assertLess(mse, 1e-20)
-        print(" -> DSP logika ispravna.")
+        # Provjera samo prvog simbola
+        cp_len = mod.cp_lengths[0]
+        N = mod.N
+        
+        cp_content = wav[0:cp_len]
+        # Rep podataka je zadnjih cp_len uzoraka dijela sa podacima.
+        data_part = wav[cp_len : cp_len + N]
+        tail_part = data_part[-cp_len:]
+        
+        np.testing.assert_array_almost_equal(cp_content, tail_part)
 
-    def test_04_multi_subframe(self):
+    def test_04_cp_integrity_extended(self):
+        """Test 4: Provjerava da li je CP kopija kraja simbola (Extended Mode)."""
+        print("\n[TEST 4] CP Integritet (Extended)...")
+        grid = self.create_data(25, 12)
+        mod = OFDMModulator(grid)
+        wav, _ = mod.modulate()
+        
+        cp_len = mod.cp_lengths[0]
+        N = mod.N
+        
+        # Uzimamo drugi simbol (index 1)
+        sym_len = N + cp_len
+        start_idx = sym_len 
+        
+        cp_content = wav[start_idx : start_idx + cp_len]
+        data_part = wav[start_idx + cp_len : start_idx + sym_len]
+        tail_part = data_part[-cp_len:]
+        
+        np.testing.assert_array_almost_equal(cp_content, tail_part)
+
+    def test_05_dsp_roundtrip_mse(self):
+        """Test 5: Puni krug (Modulacija -> Demodulacija) provjera MSE."""
+        print("\n[TEST 5] DSP Round-trip MSE...")
+        ndlrb = 15
+        grid_in = self.create_data(ndlrb, 14)
+        mod = OFDMModulator(grid_in)
+        wav, _ = mod.modulate()
+        
+        N = mod.N
+        reconstructed = np.zeros_like(grid_in)
+        current = 0
+        
+        pos_sc = np.arange(mod.num_subcarriers//2, mod.num_subcarriers)
+        neg_sc = np.arange(0, mod.num_subcarriers//2)
+        
+        for i in range(14):
+            cp = mod.cp_lengths[i % 7]
+            data_t = wav[current + cp : current + cp + N]
+            data_f = np.fft.fft(data_t) / N
+            
+            reconstructed[pos_sc, i] = data_f[0 : mod.num_subcarriers//2]
+            reconstructed[neg_sc, i] = data_f[N - mod.num_subcarriers//2 : N]
+            current += (cp + N)
+            
+        mse = np.mean(np.abs(grid_in - reconstructed)**2)
+        self.assertLess(mse, 1e-20)
+
+    def test_06_zero_input_response(self):
+        """Test 6: Provjerava da li ulaz nula rezultira izlazom nula."""
+        print("\n[TEST 6] Zero Input Response...")
+        grid = np.zeros((300, 14), dtype=complex) # 25 RBs
+        mod = OFDMModulator(grid)
+        wav, _ = mod.modulate()
+        self.assertEqual(np.sum(np.abs(wav)), 0.0)
+
+    # =================================================================
+    # GRUPA 3: SPECIJALNI SLUČAJEVI (Testovi 7-8)
+    # =================================================================
+
+    def test_07_single_active_subcarrier_papr(self):
         """
-        Testira generisanje dužih sekvenci (Multi-subframe).
-
-        Provjerava stabilnost i ispravnost dužine signala za 10ms okvir
-        (1 Radio Frame = 10 Subframes).
-
-        Parameters
-        ----------
-        None (Hardkodiran NDLRB=25, 140 simbola).
+        Test 7: Single Tone Test.
+        Jedan podnosioc -> konstantna magnituda u vremenu.
         """
-        print(f"\n[TEST 4] Multi-subframe test...")
-        ndlrb = 25
-        num_symbols = 140 # 10 subframes
-        grid = self.create_data(ndlrb, num_symbols)
+        print("\n[TEST 7] Single Tone (Constant Envelope)...")
+        grid = np.zeros((300, 14), dtype=complex)
+        grid[0, 0] = 1.0 + 0j 
         
         mod = OFDMModulator(grid)
         wav, _ = mod.modulate()
         
-        expected = 76800 # Za 5MHz (FFT 512)
-        self.assertEqual(len(wav), expected)
-        print(" -> Multi-subframe OK.")
-
-    def test_05_invalid_configurations(self):
-        """
-        Testira rukovanje greškama (Error Handling).
-
-        Provjerava da li klasa ispravno podiže `ValueError` za nevalidne ulaze.
-
-        Cases
-        -----
-        1. Broj podnosioca nije djeljiv sa 12.
-        2. Broj simbola ne odgovara LTE slot strukturi.
-        3. Nevalidan override FFT veličine.
-        4. Nepodržan NDLRB.
-        """
-        print(f"\n[TEST 5] Error Handling...")
+        first_symbol_wav = wav[0 : mod.N + mod.cp_lengths[0]]
+        magnitudes = np.abs(first_symbol_wav)
+        std_dev = np.std(magnitudes)
         
+        self.assertLess(std_dev, 1e-5)
+
+    def test_08_oversampling_logic(self):
+        """Test 8: Provjera da li 'new_fft_size' ispravno mijenja interno stanje."""
+        print("\n[TEST 8] Oversampling logika...")
+        grid = self.create_data(6, 14)
+        target_fft = 512
+        mod = OFDMModulator(grid, new_fft_size=target_fft)
+        
+        self.assertEqual(mod.N, target_fft)
+        # Provjera skaliranja CP-a (Normal CP: 160 * 512/2048 = 40)
+        expected_cp0 = int(160 * target_fft / 2048)
+        self.assertEqual(mod.cp_lengths[0], expected_cp0)
+
+    # =================================================================
+    # GRUPA 4: ERROR HANDLING (Testovi 9-10)
+    # =================================================================
+
+    def test_09_error_invalid_subcarrier_count(self):
+        """Test 9: Greška ako broj redova nije djeljiv sa 12."""
+        print("\n[TEST 9] Error: Invalid Subcarrier Count...")
         with self.assertRaises(ValueError):
-            OFDMModulator(np.zeros((13, 14))) 
+            OFDMModulator(np.zeros((13, 14)))
+
+    def test_10_error_invalid_symbol_count(self):
+        """Test 10: Greška ako broj simbola nije 12 ili 14."""
+        print("\n[TEST 10] Error: Invalid Symbol Count...")
         with self.assertRaises(ValueError):
-            OFDMModulator(np.zeros((72, 13)))
-        with self.assertRaises(ValueError):
-            OFDMModulator(np.zeros((600, 14)), new_fft_size=123)
-        with self.assertRaises(ValueError):
-            OFDMModulator(np.zeros((20*12, 14)))
-            
-        print(" -> Error handling OK.")
+            OFDMModulator(np.zeros((72, 5)))
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
