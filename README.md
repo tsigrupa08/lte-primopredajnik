@@ -49,18 +49,4 @@ lte-primopredajnik/
 │-transmitter
 
 
-## Unit Tests
 
-Ova sekcija opisuje kako pokrenuti unit testove i generisati coverage report.
-
-### 1. Pokretanje testova
-
-Svi testovi su napisani u **OOP stilu**, koriste klasu `ResourceGrid`, i zadržavaju **NumPy stil docstringova**.
-
-#### Na Windows-u:
-
-1. Otvorite PowerShell ili CMD u root folderu projekta.
-2. Pokrenite skriptu `run_tests.bat`:
-
-```powershell
-.\run_tests.bat
