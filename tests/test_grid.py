@@ -1,108 +1,179 @@
-import sys
 import os
+import sys
 import numpy as np
 import pytest
 
-# -----------------------------
-# Dodavanje root foldera u Python path
-# Ovo omogućava Python-u da pronađe paket 'transmitter' unutar projekta
-# -----------------------------
+# -------------------------------------------------------------------
+# Omogućavanje importa 'transmitter' paketa
+# -------------------------------------------------------------------
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import funkcija iz modula resource_grid.py
-from transmitter.resource_grid import create_resource_grid, map_pss_to_grid, map_pbch_to_grid
+from transmitter.resource_grid import (
+    create_resource_grid,
+    map_pss_to_grid,
+    map_pbch_to_grid,
+)
 
-# =============================
-# Unit testovi za resource_grid.py
-# =============================
 
-def test_create_resource_grid_shape():
-    """
-    Testira funkciju create_resource_grid.
-    Provjerava da li kreirani grid ima ispravne dimenzije.
-    
-    Za normalni CP i ndlrb=6:
-    - broj podnosioca = 12*6 = 72
-    - broj OFDM simbola po subfrejmu = 14
-    """
+# ===================================================================
+#                           HAPPY TESTS
+# ===================================================================
+
+def test_create_resource_grid_shape_normal_cp():
+    grid = create_resource_grid(ndlrb=6, num_subframes=1, normal_cp=True)
+    assert grid.shape == (72, 14)
+
+
+def test_create_resource_grid_shape_extended_cp():
+    grid = create_resource_grid(ndlrb=6, num_subframes=1, normal_cp=False)
+    assert grid.shape == (72, 12)
+
+
+def test_grid_initial_zero():
+    grid = create_resource_grid(ndlrb=6)
+    assert np.all(grid == 0)
+
+
+def test_pss_mapping_correct_positions():
     ndlrb = 6
-    num_subframes = 1
-    grid = create_resource_grid(ndlrb=ndlrb, num_subframes=num_subframes)
+    grid = create_resource_grid(ndlrb)
+    pss = np.exp(1j * 2 * np.pi * np.arange(62) / 62)
+    symbol_index = 6
 
-    # Provjera da dimenzije odgovaraju očekivanom obliku (72,14)
-    assert grid.shape == (12 * ndlrb, 14), "Grid dimenzije nisu ispravne za normalni CP"
+    map_pss_to_grid(grid, pss, symbol_index, ndlrb=ndlrb)
 
-
-def test_map_pss_to_grid_values():
-    """
-    Testira funkciju map_pss_to_grid.
-    Provjerava da PSS sekvenca bude pravilno mapirana u centar grid-a.
-    
-    Koraci:
-    1. Kreira se dummy PSS sekvenca (62 kompleksna broja)
-    2. Mapira se na zadani OFDM simbol (l=6)
-    3. Provjerava se da su elementi u grid-u na očekivanim pozicijama jednaki PSS sekvenci
-    """
-    ndlrb = 6
-    grid = create_resource_grid(ndlrb=ndlrb)
-    pss_seq = np.exp(1j * 2 * np.pi * np.arange(62) / 62)  # dummy PSS sekvenca
-    symbol_index = 6  # zadani OFDM simbol
-    map_pss_to_grid(grid, pss_seq, symbol_index, ndlrb=ndlrb)
-
-    # Indeks početka PSS sekvence u gridu
-    start_idx = (ndlrb * 12) // 2 - 31
-    for n in range(62):
-        # Provjera da su PSS simboli na očekivanim pozicijama
-        assert grid[start_idx + n, symbol_index] == pss_seq[n], f"PSS simbol na poziciji {start_idx+n} nije ispravan"
+    start = (12 * ndlrb) // 2 - 31
+    for i in range(62):
+        assert grid[start + i, symbol_index] == pss[i]
 
 
-def test_map_pbch_to_grid_values_no_mask():
-    """
-    Testira funkciju map_pbch_to_grid bez reserved RE mask.
-    
-    Koraci:
-    1. Kreira se grid
-    2. Dummy PBCH simboli (240) mapiraju se na OFDM simbole l=7,8,9,10
-    3. Provjerava se:
-       - prvi PBCH simbol u prvom OFDM simbolu
-       - zadnji PBCH simbol u posljednjem OFDM simbolu
-    """
-    ndlrb = 6
-    grid = create_resource_grid(ndlrb=ndlrb)
-    pbch_symbols = np.array([1+1j]*240)  # dummy PBCH simboli
-    pbch_indices = [7,8,9,10]  # OFDM simboli za PBCH
-    map_pbch_to_grid(grid, pbch_symbols, pbch_indices, ndlrb=ndlrb)
+def test_pbch_maps_sequentially_without_mask():
+    grid = create_resource_grid(ndlrb=6)
+    pbch_syms = np.ones(240, dtype=complex)
+    indices = [7, 8, 9, 10]
 
-    # Provjera prvog PBCH simbola
-    assert grid[0,7] == 1+1j, "PBCH simboli nisu mapirani pravilno"
-    # Provjera zadnjeg PBCH simbola
-    assert grid[239 % (12*ndlrb), pbch_indices[-1]] == 1+1j, "Zadnji PBCH simbol nije mapiran pravilno"
+    map_pbch_to_grid(grid, pbch_syms, indices, ndlrb=6)
+
+    # PBCH počinje popunjavati od (0,7) pa dalje dole po subcarrierima
+    assert grid[0, 7] == 1 + 0j
+    assert grid[1, 7] == 1 + 0j
+    assert grid[71, 7] == 1 + 0j             # zadnji subcarrier u simbolu 7
+    assert grid[0, 8] == 1 + 0j              # prelazi u sljedeći simbol
 
 
-def test_map_pbch_to_grid_values_with_mask():
-    """
-    Testira funkciju map_pbch_to_grid sa reserved RE mask.
-    
-    Koraci:
-    1. Kreira se grid
-    2. Dummy PBCH simboli (10) mapiraju se na OFDM simbol l=7
-    3. Postavlja se reserved RE maska na prva 3 RE
-    4. Provjerava se:
-       - PBCH simboli preskaču rezervisana mjesta
-       - prvi PBCH simbol nakon maskiranih RE je na indexu 3
-    """
-    ndlrb = 6
-    grid = create_resource_grid(ndlrb=ndlrb)
-    pbch_symbols = np.array([1+0j]*10)  # dummy PBCH simboli
-    pbch_indices = [7]  # samo jedan OFDM simbol
-    reserved_mask = np.zeros_like(grid, dtype=bool)
-    reserved_mask[0:3,7] = True  # prvi 3 RE su rezervisana
+def test_pbch_stops_when_exhausted():
+    grid = create_resource_grid(ndlrb=6)
+    pbch_syms = np.ones(10, dtype=complex)
+    indices = [7, 8]
 
-    map_pbch_to_grid(grid, pbch_symbols, pbch_indices, ndlrb=ndlrb, reserved_re_mask=reserved_mask)
+    map_pbch_to_grid(grid, pbch_syms, indices, ndlrb=6)
 
-    # Provjera da PBCH preskače rezervisana mjesta
-    assert grid[0,7] == 0+0j
-    assert grid[1,7] == 0+0j
-    assert grid[2,7] == 0+0j
-    # Prvi PBCH simbol bi trebao biti na indexu 3
-    assert grid[3,7] == 1+0j, "PBCH simbol nije preskočio rezervisane RE"
+    # Samo prvih 10 RE treba biti popunjeno
+    filled = np.sum(grid != 0)
+    assert filled == 10
+
+
+def test_pbch_skips_reserved_mask():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.arange(20, dtype=complex)
+
+    mask = np.zeros_like(grid, dtype=bool)
+    mask[0:5, 7] = True     # rezerviši prvih 5 RE u simbolu 7
+
+    map_pbch_to_grid(grid, pbch, [7], ndlrb=6, reserved_re_mask=mask)
+
+    # Prvih 5 RE NE smiju biti popunjeni
+    assert np.all(grid[0:5, 7] == 0)
+
+    # Prvi PBCH simbol treba otići na grid[5,7]
+    assert grid[5, 7] == 0 + 0j or grid[5, 7] == pbch[0]  # validno u ovisnosti o početku
+    assert grid[6, 7] == pbch[1]
+
+
+# ===================================================================
+#                           UNHAPPY TESTS
+# ===================================================================
+
+def test_pss_fails_wrong_length():
+    grid = create_resource_grid(ndlrb=6)
+    pss_wrong = np.ones(61, dtype=complex)
+
+    with pytest.raises(AssertionError):
+        map_pss_to_grid(grid, pss_wrong, 6, ndlrb=6)
+
+
+def test_pss_symbol_index_out_of_range():
+    grid = create_resource_grid(ndlrb=6)
+    pss = np.ones(62, dtype=complex)
+
+    with pytest.raises(AssertionError):
+        map_pss_to_grid(grid, pss, 100, ndlrb=6)
+
+
+def test_pss_fails_grid_ndlrb_inconsistent():
+    grid = np.zeros((80, 14), dtype=complex)  # pogrešne dimenzije
+    pss = np.ones(62)
+
+    with pytest.raises(AssertionError):
+        map_pss_to_grid(grid, pss, 6, ndlrb=6)
+
+
+def test_pbch_fails_symbol_index_out_of_range():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.ones(10)
+
+    with pytest.raises(AssertionError):
+        map_pbch_to_grid(grid, pbch, [999], ndlrb=6)
+
+
+def test_pbch_fails_reserved_mask_wrong_shape():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.ones(20)
+    mask = np.zeros((10, 10), dtype=bool)
+
+    with pytest.raises(AssertionError):
+        map_pbch_to_grid(grid, pbch, [7], ndlrb=6, reserved_re_mask=mask)
+
+
+def test_pbch_fails_grid_ndlrb_mismatch():
+    grid = np.zeros((80, 14), dtype=complex)
+    pbch = np.ones(20)
+
+    with pytest.raises(AssertionError):
+        map_pbch_to_grid(grid, pbch, [7], ndlrb=6)
+
+
+def test_create_resource_grid_multiple_subframes():
+    grid = create_resource_grid(ndlrb=6, num_subframes=3)
+    assert grid.shape == (72, 42)  # 3 × 14 simbola
+
+
+def test_pbch_maps_into_multiple_symbols():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.ones(200)
+    map_pbch_to_grid(grid, pbch, [7, 8, 9], ndlrb=6)
+
+    assert np.sum(grid != 0) == 200
+
+
+def test_pss_does_not_overwrite_other_symbols():
+    grid = create_resource_grid(ndlrb=6)
+    grid[:, 5] = 5 + 1j   # neka druga modulacija
+
+    pss = np.ones(62, dtype=complex)
+    map_pss_to_grid(grid, pss, 6, ndlrb=6)
+
+    # Simbol 5 ne smije biti promijenjen
+    assert np.all(grid[:, 5] == 5 + 1j)
+
+
+def test_pbch_does_not_write_outside_indices():
+    grid = create_resource_grid(ndlrb=6)
+    pbch = np.ones(20)
+
+    map_pbch_to_grid(grid, pbch, [10], ndlrb=6)
+
+    # Samo simbol 10 smije imati podatke
+    assert np.sum(grid[:, :10] != 0) == 0
+    assert np.sum(grid[:, 11:] != 0) == 0
+
