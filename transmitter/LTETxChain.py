@@ -84,12 +84,12 @@ class LTETxChain:
         """
 
         # 1) PSS generacija
-        pss, _ = generate_pss_sequence(self.nid2)
+        pss = generate_pss_sequence(self.nid2)
         map_pss_to_grid(self.grid, pss, symbol_index=6, ndlrb=self.ndlrb)
 
         # 2) PBCH enkodiranje i mapiranje
         if mib_bits is not None:
-            pbch_encoder = PBCHEncoder(target_bits=384, verbose=False)
+            pbch_encoder = PBCHEncoder(verbose=False)
             pbch_symbols = pbch_encoder.encode(mib_bits)
             # mapiranje PBCH u grid: simboli 0–3 u slotu 0 (LTE specifikacija)
             map_pbch_to_grid(
