@@ -1,12 +1,6 @@
 """
 LTE Transmit Chain Module (TX)
 
-<<<<<<< HEAD
-Implements LTE downlink transmit chain:
-- PSS generation and mapping
-- MIB → PBCH QPSK encoding and mapping
-- OFDM modulation
-=======
 Ovaj modul implementira pojednostavljeni LTE downlink predajni lanac:
 - Generisanje PSS sekvence i mapiranje u resource grid
 - MIB (24 bita) -> PBCH enkodiranje -> QPSK simboli
@@ -20,7 +14,6 @@ Ovaj projekat koristi pojednostavljeni pristup PBCH mapiranju:
 - Ovi 960 simbola se mapiraju kao 4 bloka po 240 simbola kroz 4 subfrejma.
   (240 simbola po subfrejmu je tipično za PBCH regiju nakon izostavljanja nekih RE,
    ali ovdje mapiramo sekvencijalno bez CRS maske osim ako je ne proslijediš.)
->>>>>>> d451b4f (Fix LTETxChain TX pipeline)
 """
 
 from __future__ import annotations
@@ -28,38 +21,15 @@ from __future__ import annotations
 from typing import Optional, Sequence
 
 import numpy as np
-<<<<<<< HEAD
-from transmitter.pss import PSSGenerator
-from transmitter.resource_grid import create_resource_grid, map_pss_to_grid, map_pbch_to_grid
-from transmitter.ofdm import OFDMModulator
-=======
 
 from transmitter.pss import PSSGenerator
 from transmitter.resource_grid import create_resource_grid, map_pss_to_grid, map_pbch_to_grid
->>>>>>> d451b4f (Fix LTETxChain TX pipeline)
 from transmitter.pbch import PBCHEncoder
 from transmitter.ofdm import OFDMModulator
 
 
 class LTETxChain:
     """
-<<<<<<< HEAD
-    LTE downlink transmit chain.
-    """
-
-    def __init__(self, n_id_2=0, ndlrb=6, num_subframes=1, normal_cp=True):
-        self.n_id_2 = n_id_2
-        self.ndlrb = ndlrb
-        self.num_subframes = num_subframes
-        self.normal_cp = normal_cp
-
-        # Kreiranje praznog grid-a
-        self.grid = None
-        self._reset_grid()
-
-    def _reset_grid(self):
-        """Create an empty LTE resource grid."""
-=======
     LTE downlink predajni lanac (TX).
 
     Parametri
@@ -105,7 +75,6 @@ class LTETxChain:
 
     def _reset_grid(self) -> None:
         """Kreira prazan LTE resource grid za trenutnu konfiguraciju."""
->>>>>>> d451b4f (Fix LTETxChain TX pipeline)
         self.grid = create_resource_grid(
             ndlrb=self.ndlrb,
             num_subframes=self.num_subframes,
@@ -114,14 +83,6 @@ class LTETxChain:
 
     def _pss_symbol_index(self) -> int:
         """
-<<<<<<< HEAD
-        Generate LTE OFDM waveform.
-
-        Parameters
-        ----------
-        mib_bits : np.ndarray of int, optional
-            Binary MIB sequence (1920 bits) used for PBCH.
-=======
         Indeks OFDM simbola za PSS unutar subfrejma 0.
 
         Normal CP: zadnji simbol slota 0 -> l = 6 (slot0: 0..6)
@@ -132,7 +93,6 @@ class LTETxChain:
     def _pbch_symbol_indices_for_subframe(self, subframe_index: int) -> list[int]:
         """
         Indeksi OFDM simbola (kolone) za PBCH u datom subfrejmu.
->>>>>>> d451b4f (Fix LTETxChain TX pipeline)
 
         Za subfrejm 0 (i analogno za ostale ako mapiramo blokove kroz subfrejmove):
         Normal CP: PBCH u prva 4 simbola slota 1 -> l = 7,8,9,10
@@ -174,51 +134,6 @@ class LTETxChain:
         Povratna vrijednost
         -------------------
         waveform : np.ndarray
-<<<<<<< HEAD
-            Time-domain OFDM signal.
-        fs : float
-            Sampling frequency.
-        """
-        # Reset grid pri svakom pozivu
-        self._reset_grid()
-
-        # PSS generacija (OOP)
-        pss = PSSGenerator.generate(self.n_id_2)
-        pss_symbol = 6 if self.normal_cp else 5
-
-        map_pss_to_grid(
-            self.grid,
-            pss,
-            symbol_index=pss_symbol,
-            ndlrb=self.ndlrb,
-        )
-
-        # PBCH mapiranje
-        if mib_bits is not None:
-            if len(mib_bits) != 1920:
-                raise ValueError("PBCH expects exactly 1920 MIB bits.")
-
-            pbch_encoder = PBCHEncoder(verbose=False)
-            pbch_symbols = pbch_encoder.encode(mib_bits)
-
-            # PBCH simboli idu na ispravne indekse
-            pbch_symbol_indices = [6, 7, 8, 9] if self.normal_cp else [5, 6, 7, 8]
-
-            map_pbch_to_grid(
-                self.grid,
-                pbch_symbols,
-                pbch_symbol_indices=pbch_symbol_indices,
-                ndlrb=self.ndlrb,
-            )
-
-        # OFDM modulacija
-        ofdm = OFDMModulator(self.grid)
-        waveform, fs = ofdm.modulate()
-
-        # Provjera shape-a
-        if waveform.shape[0] != ofdm.output_length:
-            print("[Warning] Output waveform length ne odgovara očekivanom output_length.")
-=======
             Kompleksni vremenski OFDM signal (sa CP).
         fs : float
             Frekvencija uzorkovanja u Hz.
@@ -289,7 +204,6 @@ class LTETxChain:
         # 3) OFDM modulacija
         ofdm = OFDMModulator(self.grid)
         waveform, fs = ofdm.modulate()
->>>>>>> d451b4f (Fix LTETxChain TX pipeline)
 
         return waveform, fs
 
