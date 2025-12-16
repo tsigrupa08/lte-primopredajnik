@@ -49,4 +49,4 @@ lte-primopredajnik/
 │-transmitter
 
 
-
+Automatski generisana tehnička dokumentacija (Doxygen): docs/html/index.html
