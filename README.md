@@ -15,11 +15,11 @@ This project implements an LTE transceiver. The goal of the project is to enable
 ## Repository Structure
 
 lte-primopredajnik/
-│-chanel
+│-channel
 │-common
 │-docs
 │-receiver
-│-scripts
+│-examples
 │-tests
 │-transmitter
 
@@ -40,13 +40,14 @@ Projekat je edukativnog karaktera i može poslužiti kao osnova za dalji razvoj 
 ## Struktura
 
 lte-primopredajnik/
-│-chanel
+│-channel
 │-common
 │-docs
 │-receiver
-│-scripts
+│-examples
 │-tests
 │-transmitter
 
 
+Automatski generisana tehnička dokumentacija (Doxygen): docs/html/index.html
 
