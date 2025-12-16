@@ -41,13 +41,13 @@ def make_mib_bits(num_bits: int = 24) -> np.ndarray:
     return bits
 
 
-def build_transmitter(nid2: int = 0, ndlrb: int = 6, num_subframes: int = 1, normal_cp: bool = True) -> LTETxChain:
+def build_transmitter(n_id_2: int = 0, ndlrb: int = 6, num_subframes: int = 4, normal_cp: bool = True) -> LTETxChain:
     """
     Kreira LTE predajni lanac.
 
     Parametri
     ---------
-    nid2 : int
+    n_id_2 : int
         Fizički identitet ćelije (NID2), vrijednost 0–2.
     ndlrb : int
         Broj downlink resurs blokova (minimalno 6 za 1.4 MHz).
@@ -61,7 +61,7 @@ def build_transmitter(nid2: int = 0, ndlrb: int = 6, num_subframes: int = 1, nor
     LTETxChain
         Konfigurisani LTE predajni lanac.
     """
-    return LTETxChain(nid2=nid2, ndlrb=ndlrb, num_subframes=num_subframes, normal_cp=normal_cp)
+    return LTETxChain(n_id_2=n_id_2, ndlrb=ndlrb, num_subframes=num_subframes, normal_cp=normal_cp)
 
 
 def generate_tx_waveform(tx: LTETxChain, mib_bits: np.ndarray) -> tuple[np.ndarray, float]:
@@ -236,7 +236,7 @@ def main() -> None:
     - Iscrtava PBCH konstelaciju (Tx strana)
     """
     # 1) Predajni lanac
-    tx = build_transmitter(nid2=0, ndlrb=6, num_subframes=1, normal_cp=True)
+    tx = build_transmitter(n_id_2=0, ndlrb=6, num_subframes=4, normal_cp=True)
 
     # 2) MIB (24 bita)
     mib_bits = make_mib_bits(num_bits=24)
