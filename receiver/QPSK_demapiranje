@@ -38,12 +38,12 @@ class QPSKDemapper:
 
         Parametri
         ----------
-        symbols : numpy.ndarray (complex)
+        symbols : numpy.ndarray of complex
             QPSK simboli (npr. izlaz OFDM demodulatora nakon equalizacije)
 
         Povrat
         -------
-        bits : numpy.ndarray (uint8)
+        bits : numpy.ndarray of uint8
             Demapirani bitovi (0/1), duljine 2 * broj_simbola
         """
 
@@ -79,3 +79,38 @@ class QPSKDemapper:
         bits[1::2] = b1
 
         return bits
+
+
+# ==============================================================
+# PRIMJERI KORIŠTENJA (NumPy stil, dokumentacijski primjer)
+# ==============================================================
+
+# Pretpostavimo da su QPSK simboli dobiveni nakon OFDM demodulacije
+# i idealne equalizacije (bez šuma).
+
+# QPSK simboli (I + jQ) i pripadajući bitovi:
+#   1 + 1j   → b0=0, b1=0
+#  -1 + 1j   → b0=1, b1=0
+#   1 - 1j   → b0=0, b1=1
+#  -1 - 1j   → b0=1, b1=1
+
+symbols = np.array([
+    1 + 1j,
+   -1 + 1j,
+    1 - 1j,
+   -1 - 1j
+], dtype=np.complex64)
+
+# Inicijalizacija demappera
+demapper = QPSKDemapper(mode="hard")
+
+# Demapiranje simbola u bitove
+bits = demapper.demap(symbols)
+
+# Očekivani rezultat:
+# bits = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+
+# Napomena:
+# - Izlazni niz ima duljinu 2 * broj_simbola
+# - bits[0::2] odgovara I-komponenti (b0)
+# - bits[1::2] odgovara Q-komponenti (b1)
