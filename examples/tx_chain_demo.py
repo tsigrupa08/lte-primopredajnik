@@ -5,10 +5,11 @@ tx_chain_demo
 Primjer kompletnog LTE predajnog lanca (TX chain) i vizualizacije:
 
 - PBCH QPSK konstelacija
-- dio OFDM talasnog oblika u vremenu
+- OFDM talasni oblik (real, imag, |s[n]|)
 
 TX-only demonstracija (bez kanala).
 """
+
 from __future__ import annotations
 
 import os
@@ -37,7 +38,6 @@ RESULTS_BASE = os.path.join(BASE_DIR, "results")
 TX_DIR = os.path.join(RESULTS_BASE, "tx")
 os.makedirs(TX_DIR, exist_ok=True)
 
-
 # ================================================================
 # PBCH helper
 # ================================================================
@@ -59,7 +59,6 @@ def _pbch_symbols_from_mib(mib_bits: np.ndarray) -> np.ndarray:
     syms = encoder.encode(mib_bits)
     return np.asarray(syms, dtype=np.complex128).flatten()
 
-
 # ================================================================
 # PLOT FUNKCIJE
 # ================================================================
@@ -71,7 +70,6 @@ def plot_pbch_qpsk_constellation(pbch_symbols: np.ndarray) -> None:
     if syms.size == 0:
         raise ValueError("Nema PBCH simbola za plot.")
 
-    # normalizacija snage
     syms = syms / np.sqrt(np.mean(np.abs(syms) ** 2))
 
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -102,19 +100,37 @@ def plot_ofdm_time_segment(
     sample_rate: float,
     num_samples: int = 4000,
 ) -> None:
+    """
+    OFDM talasni oblik – tri odvojena prikaza:
+    1) realni dio
+    2) imaginarni dio
+    3) apsolutna vrijednost |s[n]|
+    """
     seg = waveform[:num_samples]
     t = np.arange(seg.size) / sample_rate
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(t, seg.real, label="Realni dio")
-    ax.plot(t, seg.imag, "--", label="Imaginarni dio")
-    ax.plot(t, np.abs(seg), ":", label="|s[n]|")
+    fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
 
-    ax.set_title("OFDM talasni oblik (TX)")
-    ax.set_xlabel("t [s]")
-    ax.set_ylabel("Amplituda")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    ax.legend()
+    # --- Realni dio ---
+    axes[0].plot(t, seg.real, color="tab:blue")
+    axes[0].set_title("OFDM – realni dio (TX)")
+    axes[0].set_ylabel("Amplituda")
+    axes[0].grid(True, alpha=0.4)
+
+    # --- Imaginarni dio ---
+    axes[1].plot(t, seg.imag, color="tab:orange")
+    axes[1].set_title("OFDM – imaginarni dio (TX)")
+    axes[1].set_ylabel("Amplituda")
+    axes[1].grid(True, alpha=0.4)
+
+    # --- Apsolutna vrijednost ---
+    axes[2].plot(t, np.abs(seg), color="tab:green")
+    axes[2].set_title("OFDM – |s[n]| (TX)")
+    axes[2].set_xlabel("t [s]")
+    axes[2].set_ylabel("Amplituda")
+    axes[2].grid(True, alpha=0.4)
+
+    fig.tight_layout()
 
     fig.savefig(
         os.path.join(TX_DIR, "tx_chain_ofdm_time_segment.png"),
@@ -122,7 +138,6 @@ def plot_ofdm_time_segment(
         bbox_inches="tight",
     )
     plt.close(fig)
-
 
 # ================================================================
 # MAIN
