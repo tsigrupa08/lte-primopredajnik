@@ -47,6 +47,12 @@ from transmitter.pbch import PBCHEncoder
 
 EXAMPLES_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# ---------------------------------------------------------------------------#
+# PUTANJA ZA FIGURE (JEDINA FUNKCIONALNA IZMJENA)
+# ---------------------------------------------------------------------------#
+FIGURES_DIR = os.path.join(EXAMPLES_DIR, "figures")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+
 
 # ---------------------------------------------------------------------------#
 # Pomoćno: PBCHEncoder kompatibilno kreiranje (da radi i ako se potpis razlikuje)
@@ -149,13 +155,12 @@ def plot_pbch_qpsk_constellation(pbch_symbols: np.ndarray) -> plt.Figure:
 
     ax.legend(loc="best")
 
-    save_path = os.path.join(EXAMPLES_DIR, "results_pbch_qpsk_constellation.png")
+    save_path = os.path.join(FIGURES_DIR, "results_pbch_qpsk_constellation.png")
     fig.savefig(save_path, dpi=300)
     print(f"[OK] Spremljena PBCH konstelacija → {save_path}")
     print(f"[DBG] max |sym| prije sanacije: {max_abs:.3g}")
 
     return fig
-
 
 
 def plot_ofdm_time_segment(
@@ -183,7 +188,7 @@ def plot_ofdm_time_segment(
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.legend(loc="best")
 
-    save_path = os.path.join(EXAMPLES_DIR, "results_ofdm_time_segment.png")
+    save_path = os.path.join(FIGURES_DIR, "results_ofdm_time_segment.png")
     fig.savefig(save_path, dpi=300)
     print(f"[OK] Spremljen OFDM segment → {save_path}")
 

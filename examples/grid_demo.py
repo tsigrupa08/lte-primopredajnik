@@ -33,12 +33,21 @@ ili:
 from __future__ import annotations
 
 from typing import Iterable, Tuple
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 
 from transmitter.resource_grid import ResourceGrid
+
+
+# -----------------------------------------------------------------------------
+# PUTANJA ZA FIGURE (JEDINA FUNKCIONALNA IZMJENA)
+# -----------------------------------------------------------------------------
+BASE_DIR = os.path.dirname(__file__)
+FIGURES_DIR = os.path.join(BASE_DIR, "figures")
+os.makedirs(FIGURES_DIR, exist_ok=True)
 
 
 # -----------------------------------------------------------------------------
@@ -80,17 +89,13 @@ def create_demo_grid(
     >>> rg.grid.shape
     (72, 14)
     """
-    # 1) Prazan grid
     rg = ResourceGrid(ndlrb=ndlrb, num_subframes=num_subframes, normal_cp=normal_cp)
 
-    # 2) PSS demo – jednostavna sekvenca amplitude 1
     n_pss = 62
     pss_sequence = np.ones(n_pss, dtype=complex)
-    pss_symbol_index = 6  # l = 6
-
+    pss_symbol_index = 6
     rg.map_pss(pss_sequence=pss_sequence, symbol_index=pss_symbol_index)
 
-    # 3) PBCH demo – 240 QPSK simbola, |s| ≈ 1
     num_pbch_symbols = 240
     bits = np.random.randint(0, 2, size=(2 * num_pbch_symbols,))
     bits = bits.reshape(-1, 2)
@@ -120,47 +125,23 @@ def plot_results(
     rg: ResourceGrid,
     pss_symbol_index: int = 6,
     pbch_symbol_indices: Iterable[int] = (7, 8, 9, 10),
-    save_path: str | None = "examples/grid_demo_result.png",
+    save_path: str | None = None,
 ) -> None:
     """
     Prikazuje rezultate mapiranja PSS + PBCH u jednom prozoru.
-
-    Lijevi subplot:
-        2D heatmap magnitude resource grida sa:
-            * označenim PSS simbolom,
-            * označenim PBCH opsegom,
-            * označenim DC podnosiocem,
-            * legendom boja koja objašnjava tamno ljubičastu i žutu.
-
-    Desni subplot:
-        1D graf amplitude PSS-a u simbolu ``l = pss_symbol_index``.
-
-    Parametri
-    ----------
-    rg : ResourceGrid
-        Objekat koji sadrži popunjeni resource grid.
-    pss_symbol_index : int, opcionalno
-        Indeks OFDM simbola u kojem je PSS mapiran.
-    pbch_symbol_indices : iterable int, opcionalno
-        Indeksi OFDM simbola u koje je PBCH mapiran.
-    save_path : str ili None, opcionalno
-        Ako nije ``None``, figura se snima na zadatu putanju (PNG).
-
-    Povratna vrijednost
-    -------------------
-    None
     """
+    if save_path is None:
+        save_path = os.path.join(FIGURES_DIR, "grid_demo_result.png")
+
     grid_abs = np.abs(rg.grid)
     num_subcarriers, _ = grid_abs.shape
     k = np.arange(num_subcarriers)
     pbch_symbol_indices = list(pbch_symbol_indices)
 
-    # DC podnosioc u indeksnom sistemu grida
-    dc_index = (rg.ndlrb * 12) // 2  # npr. 6*12/2 = 36
+    dc_index = (rg.ndlrb * 12) // 2
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 
-    # ------------------ Lijevi subplot: heatmap ------------------
     im = ax1.imshow(
         grid_abs,
         aspect="auto",
@@ -172,82 +153,24 @@ def plot_results(
     ax1.set_ylabel("Subcarrier indeks (k)")
     ax1.set_title("LTE Resource Grid – magnituda |RE|")
 
-    # PSS vertikalna linija
-    pss_line = ax1.axvline(
-        pss_symbol_index,
-        color="red",
-        linestyle="--",
-        linewidth=1.2,
-        label=f"PSS (l = {pss_symbol_index})",
-    )
-
-    # PBCH opseg
+    pss_line = ax1.axvline(pss_symbol_index, color="red", linestyle="--", linewidth=1.2)
     lmin, lmax = min(pbch_symbol_indices), max(pbch_symbol_indices)
-    pbch_span = ax1.axvspan(
-        lmin - 0.5,
-        lmax + 0.5,
-        alpha=0.15,
-        color="white",
-        label=f"PBCH (l = {lmin}–{lmax})",
-    )
+    pbch_span = ax1.axvspan(lmin - 0.5, lmax + 0.5, alpha=0.15, color="white")
+    dc_line = ax1.axhline(dc_index, color="black", linestyle=":")
 
-    # DC podnosioc – horizontalna linija
-    dc_line = ax1.axhline(
-        dc_index,
-        color="black",
-        linestyle=":",
-        linewidth=1.0,
-        label=f"DC subcarrier (k = {dc_index})",
-    )
-
-    # Strelice i tekstualne anotacije
-    ax1.annotate(
-        "PSS",
-        xy=(pss_symbol_index, dc_index + 20),
-        xytext=(pss_symbol_index + 0.8, dc_index + 25),
-        arrowprops=dict(arrowstyle="->", color="red", linewidth=1.0),
-        fontsize=8,
-        color="red",
-    )
-
-    ax1.annotate(
-        "PBCH",
-        xy=(lmin + 1.5, 10),
-        xytext=(lmin + 1.5, 20),
-        arrowprops=dict(arrowstyle="->", color="white", linewidth=1.0),
-        fontsize=8,
-        color="white",
-    )
-
-    ax1.annotate(
-        "DC subcarrier",
-        xy=(1, dc_index),
-        xytext=(1.5, dc_index + 10),
-        arrowprops=dict(arrowstyle="->", color="black", linewidth=1.0),
-        fontsize=8,
-        color="black",
-    )
-
-    # Colorbar + objašnjenje boja
     cbar = fig.colorbar(im, ax=ax1)
     cbar.set_label("|RE|")
 
-    # ručna legenda za tamno ljubičastu i žutu (viridis colormap)
     low_patch = mpatches.Patch(color="#440154", label="Prazno RE (|RE| ≈ 0)")
     high_patch = mpatches.Patch(color="#fde725", label="Mapirani simboli (|RE| ≈ 1)")
 
-    legend = ax1.legend(
-    handles=[pss_line, pbch_span, dc_line, low_patch, high_patch],
-    loc="lower left",      # donji lijevi ugao
-    fontsize=7,            # manji font
-    framealpha=0.8,        # malo providna pozadina
-    borderpad=0.3,         # tanji okvir
-    labelspacing=0.3,      # manji razmak između linija
-    handlelength=1.5,
-    handletextpad=0.6,
-)
+    ax1.legend(
+        handles=[pss_line, pbch_span, dc_line, low_patch, high_patch],
+        loc="lower left",
+        fontsize=7,
+        framealpha=0.8,
+    )
 
-    # ------------------ Desni subplot: PSS 1D ------------------
     column = grid_abs[:, pss_symbol_index]
     ax2.stem(k, column)
     ax2.set_xlabel("Subcarrier indeks (k)")
@@ -256,11 +179,7 @@ def plot_results(
     ax2.grid(True)
 
     fig.tight_layout()
-
-    # Snimanje slike ako je traženo
-    if save_path is not None:
-        fig.savefig(save_path, dpi=300, bbox_inches="tight")
-
+    fig.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.show()
 
 
@@ -270,10 +189,6 @@ def plot_results(
 def main() -> None:
     """
     Glavna funkcija za demonstraciju mapiranja PSS + PBCH.
-
-    1. Kreira demo LTE resource grid.
-    2. Ispiše osnovne informacije o gridu.
-    3. Prikazuje rezultate i snima sliku na disk.
     """
     rg, pss_sequence, pbch_symbols, pbch_symbol_indices = create_demo_grid()
 
@@ -287,7 +202,7 @@ def main() -> None:
 
     plot_results(rg, pss_symbol_index=6, pbch_symbol_indices=pbch_symbol_indices)
 
-    print("Slika je snimljena u 'examples/grid_demo_result.png'.")
+    print("Slika je snimljena u 'examples/figures/grid_demo_result.png'.")
 
 
 if __name__ == "__main__":

@@ -37,6 +37,7 @@ Pokretanje vizualizacije iz komandne linije:
     python examples/pss_demo.py
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -130,18 +131,20 @@ def main() -> None:
     axes_phase[-1].set_xlabel("n (indeks uzorka)")
     fig_phase.suptitle("Faze LTE PSS sekvenci", fontsize=14)
 
-        # ------------------------------------------------------
-    # Snimanje slika u projektni folder examples/
     # ------------------------------------------------------
-    output_mag = "examples/pss_demo_magnitude.png"
-    output_phase = "examples/pss_demo_phase.png"
+    # Snimanje slika u projektni folder examples/figures
+    # ------------------------------------------------------
+    figures_dir = os.path.join(os.path.dirname(__file__), "figures")
+    os.makedirs(figures_dir, exist_ok=True)
+
+    output_mag = os.path.join(figures_dir, "pss_demo_magnitude.png")
+    output_phase = os.path.join(figures_dir, "pss_demo_phase.png")
 
     fig_mag.savefig(output_mag, dpi=300)
     fig_phase.savefig(output_phase, dpi=300)
 
     print(f"[INFO] Sačuvano: {output_mag}")
     print(f"[INFO] Sačuvano: {output_phase}")
-
 
     plt.show()
 

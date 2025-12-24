@@ -12,6 +12,7 @@ Ovaj skript:
 Koristi NumPy stil i modularnu organizaciju.
 """
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -19,6 +20,14 @@ import matplotlib.pyplot as plt
 from transmitter.LTETxChain import LTETxChain
 from channel.lte_channel import LTEChannel
 from transmitter.pbch import PBCHEncoder
+
+
+# -----------------------------------------------------------------------------
+# PUTANJA ZA FIGURE
+# -----------------------------------------------------------------------------
+BASE_DIR = os.path.dirname(__file__)
+FIGURES_DIR = os.path.join(BASE_DIR, "figures")
+os.makedirs(FIGURES_DIR, exist_ok=True)
 
 
 def make_mib_bits(num_bits: int = 24) -> np.ndarray:
@@ -35,13 +44,17 @@ def make_mib_bits(num_bits: int = 24) -> np.ndarray:
     np.ndarray
         1D niz oblika (num_bits,) sa vrijednostima {0,1}.
     """
-    # Fiksno sjeme radi reproduktivnosti; možeš zamijeniti svojom MIB semantikom
     rng = np.random.default_rng(42)
     bits = rng.integers(low=0, high=2, size=num_bits, dtype=np.int64)
     return bits
 
 
-def build_transmitter(n_id_2: int = 0, ndlrb: int = 6, num_subframes: int = 4, normal_cp: bool = True) -> LTETxChain:
+def build_transmitter(
+    n_id_2: int = 0,
+    ndlrb: int = 6,
+    num_subframes: int = 4,
+    normal_cp: bool = True,
+) -> LTETxChain:
     """
     Kreira LTE predajni lanac.
 
@@ -61,7 +74,12 @@ def build_transmitter(n_id_2: int = 0, ndlrb: int = 6, num_subframes: int = 4, n
     LTETxChain
         Konfigurisani LTE predajni lanac.
     """
-    return LTETxChain(n_id_2=n_id_2, ndlrb=ndlrb, num_subframes=num_subframes, normal_cp=normal_cp)
+    return LTETxChain(
+        n_id_2=n_id_2,
+        ndlrb=ndlrb,
+        num_subframes=num_subframes,
+        normal_cp=normal_cp,
+    )
 
 
 def generate_tx_waveform(tx: LTETxChain, mib_bits: np.ndarray) -> tuple[np.ndarray, float]:
@@ -85,7 +103,13 @@ def generate_tx_waveform(tx: LTETxChain, mib_bits: np.ndarray) -> tuple[np.ndarr
     return waveform, fs
 
 
-def build_channel(freq_offset_hz: float, fs: float, snr_db: float, seed: int | None = 123, initial_phase_rad: float = 0.0) -> LTEChannel:
+def build_channel(
+    freq_offset_hz: float,
+    fs: float,
+    snr_db: float,
+    seed: int | None = 123,
+    initial_phase_rad: float = 0.0,
+) -> LTEChannel:
     """
     Kreira kompozitni LTE kanal (frekvencijski ofset + AWGN).
 
@@ -132,13 +156,16 @@ def apply_channel(ch: LTEChannel, x: np.ndarray) -> np.ndarray:
     np.ndarray
         Kompleksni primljeni signal nakon impairments-a.
     """
-    # Reset internog stanja (npr. brojača uzoraka u FrequencyOffset)
     ch.reset()
     y = ch.apply(x)
     return y
 
 
-def encode_pbch_symbols(mib_bits: np.ndarray, target_bits: int = 384, verbose: bool = False) -> np.ndarray:
+def encode_pbch_symbols(
+    mib_bits: np.ndarray,
+    target_bits: int = 384,
+    verbose: bool = False,
+) -> np.ndarray:
     """
     Enkodira PBCH iz MIB bitova i vraća QPSK simbole (predajna konstelacija).
 
@@ -161,7 +188,12 @@ def encode_pbch_symbols(mib_bits: np.ndarray, target_bits: int = 384, verbose: b
     return symbols
 
 
-def plot_waveforms(tx: np.ndarray, rx: np.ndarray, fs: float, num_samples: int = 2000) -> None:
+def plot_waveforms(
+    tx: np.ndarray,
+    rx: np.ndarray,
+    fs: float,
+    num_samples: int = 2000,
+) -> None:
     """
     Iscrtava segment Tx i Rx talasnog oblika (realni i imaginarni dio).
 
@@ -199,6 +231,7 @@ def plot_waveforms(tx: np.ndarray, rx: np.ndarray, fs: float, num_samples: int =
     plt.grid(True, alpha=0.3)
 
     plt.tight_layout()
+    plt.savefig(os.path.join(FIGURES_DIR, "tx_rx_waveforms.png"), dpi=300, bbox_inches="tight")
     plt.show()
 
 
@@ -215,13 +248,14 @@ def plot_constellation(symbols: np.ndarray, title: str = "PBCH QPSK konstelacija
     """
     plt.figure(figsize=(6, 6))
     plt.scatter(symbols.real, symbols.imag, s=10, alpha=0.7)
-    plt.axhline(0.0, color='gray', linewidth=0.8)
-    plt.axvline(0.0, color='gray', linewidth=0.8)
+    plt.axhline(0.0, color="gray", linewidth=0.8)
+    plt.axvline(0.0, color="gray", linewidth=0.8)
     plt.grid(True, alpha=0.3)
     plt.title(title)
     plt.xlabel("In-phase")
     plt.ylabel("Quadrature")
     plt.axis("equal")
+    plt.savefig(os.path.join(FIGURES_DIR, "pbch_constellation_tx.png"), dpi=300, bbox_inches="tight")
     plt.show()
 
 
@@ -235,16 +269,10 @@ def main() -> None:
     - Iscrtava Tx/Rx talasne oblike
     - Iscrtava PBCH konstelaciju (Tx strana)
     """
-    # 1) Predajni lanac
     tx = build_transmitter(n_id_2=0, ndlrb=6, num_subframes=4, normal_cp=True)
-
-    # 2) MIB (24 bita)
     mib_bits = make_mib_bits(num_bits=24)
-
-    # 3) Generisanje Tx talasnog oblika
     tx_waveform, fs = generate_tx_waveform(tx, mib_bits=mib_bits)
 
-    # 4) Parametri kanala (primjer)
     snr_db = 10.0
     delta_f_hz = 300.0
     ch = build_channel(
@@ -252,16 +280,13 @@ def main() -> None:
         fs=fs,
         snr_db=snr_db,
         seed=123,
-        initial_phase_rad=0.0
+        initial_phase_rad=0.0,
     )
 
-    # 5) Primjena kanala na predajni signal
     rx_waveform = apply_channel(ch, tx_waveform)
 
-    # 6) Iscrtavanje segmenta Tx/Rx talasnog oblika
     plot_waveforms(tx_waveform, rx_waveform, fs, num_samples=2000)
 
-    # 7) PBCH konstelacija (predajna strana)
     pbch_symbols = encode_pbch_symbols(mib_bits=mib_bits, target_bits=384, verbose=False)
     plot_constellation(pbch_symbols, title="PBCH QPSK konstelacija (Tx)")
 
