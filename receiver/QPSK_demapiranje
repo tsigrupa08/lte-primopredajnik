@@ -24,7 +24,9 @@ class QPSKDemapper:
             Trenutno podržan samo "hard" (hard-decision demapping)
         """
         if mode != "hard":
-            raise NotImplementedError("Trenutno je podržan samo hard demapping")
+            raise NotImplementedError(
+                "Trenutno je podržan samo hard demapping"
+            )
 
         self.mode = mode
 
@@ -82,35 +84,75 @@ class QPSKDemapper:
 
 
 # ==============================================================
-# PRIMJERI KORIŠTENJA (NumPy stil, dokumentacijski primjer)
+# PRIMJERI KORIŠTENJA (NumPy stil – dokumentacijski primjeri)
 # ==============================================================
 
-# Pretpostavimo da su QPSK simboli dobiveni nakon OFDM demodulacije
-# i idealne equalizacije (bez šuma).
-
+# --------------------------------------------------------------
+# Primjer 1: Idealni QPSK simboli (bez šuma)
+# --------------------------------------------------------------
 # QPSK simboli (I + jQ) i pripadajući bitovi:
-#   1 + 1j   → b0=0, b1=0
-#  -1 + 1j   → b0=1, b1=0
-#   1 - 1j   → b0=0, b1=1
-#  -1 - 1j   → b0=1, b1=1
+#   1 + 1j   → 00
+#  -1 + 1j   → 10
+#   1 - 1j   → 01
+#  -1 - 1j   → 11
 
-symbols = np.array([
+symbols_ideal = np.array([
     1 + 1j,
    -1 + 1j,
     1 - 1j,
    -1 - 1j
 ], dtype=np.complex64)
 
-# Inicijalizacija demappera
 demapper = QPSKDemapper(mode="hard")
-
-# Demapiranje simbola u bitove
-bits = demapper.demap(symbols)
+bits_ideal = demapper.demap(symbols_ideal)
 
 # Očekivani rezultat:
-# bits = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+# bits_ideal = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+
+
+# --------------------------------------------------------------
+# Primjer 2: QPSK simboli s malim šumom
+# --------------------------------------------------------------
+# Hard decision demapper koristi samo predznak I i Q komponente.
+
+symbols_noisy = np.array([
+    0.8 + 1.2j,
+   -1.1 + 0.9j,
+    0.7 - 1.3j,
+   -0.6 - 0.8j
+], dtype=np.complex64)
+
+bits_noisy = demapper.demap(symbols_noisy)
+
+# Očekivani rezultat (isti kao idealni slučaj):
+# bits_noisy = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+
+
+# --------------------------------------------------------------
+# Primjer 3: Jedan QPSK simbol
+# --------------------------------------------------------------
+# Ulaz može biti i niz duljine 1.
+
+single_symbol = np.array([1 - 1j], dtype=np.complex64)
+bits_single = demapper.demap(single_symbol)
+
+# Očekivani rezultat:
+# bits_single = np.array([0, 1], dtype=np.uint8)
+
+
+# --------------------------------------------------------------
+# Primjer 4: Veći broj simbola (vektorizirana obrada)
+# --------------------------------------------------------------
+# Demapper je u potpunosti vektoriziran i radi nad cijelim nizom.
+
+symbols_many = np.random.choice(
+    [1+1j, -1+1j, 1-1j, -1-1j],
+    size=100
+).astype(np.complex64)
+
+bits_many = demapper.demap(symbols_many)
 
 # Napomena:
-# - Izlazni niz ima duljinu 2 * broj_simbola
-# - bits[0::2] odgovara I-komponenti (b0)
-# - bits[1::2] odgovara Q-komponenti (b1)
+# - Duzina izlaza je 2 * len(symbols_many)
+# - bits[0::2] → bitovi iz I-komponente (b0)
+# - bits[1::2] → bitovi iz Q-komponente (b1)
