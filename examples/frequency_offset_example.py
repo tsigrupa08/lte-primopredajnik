@@ -11,11 +11,18 @@ from transmitter.ofdm import OFDMModulator
 from channel.frequency_offset import FrequencyOffset
 
 # ================================================================
-# Results folder: examples/results
+# Results folders
 # ================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
+RESULTS_BASE = os.path.join(BASE_DIR, "results")
+
+TX_DIR = os.path.join(RESULTS_BASE, "tx")
+CH_DIR = os.path.join(RESULTS_BASE, "channel")
+RX_DIR = os.path.join(RESULTS_BASE, "rx")
+
+os.makedirs(TX_DIR, exist_ok=True)
+os.makedirs(CH_DIR, exist_ok=True)
+os.makedirs(RX_DIR, exist_ok=True)
 
 # ================================================================
 # Parametri
@@ -28,11 +35,13 @@ plot_len = 2000
 delta_f_hz = 500  # frekvencijski offset [Hz]
 
 # ================================================================
-# 1. PSS signal (dummy)
+# 1. PSS signal (TX)
 # ================================================================
 pss_signal = PSSGenerator.generate(1)
 
-# Dummy QPSK simboli (za ilustraciju offseta)
+# ================================================================
+# 2. QPSK simboli (TX – ilustracija)
+# ================================================================
 qpsk_symbols = np.array([
     1 + 1j,
     -1 + 1j,
@@ -42,7 +51,7 @@ qpsk_symbols = np.array([
 qpsk_symbols = np.tile(qpsk_symbols, 50)
 
 # ================================================================
-# 2. Resource Grid
+# 3. Resource grid (TX)
 # ================================================================
 grid = ResourceGrid(
     ndlrb=ndlrb,
@@ -52,125 +61,122 @@ grid = ResourceGrid(
 grid.map_pss(pss_sequence=pss_signal, symbol_index=pss_symbol_idx)
 
 # ================================================================
-# 3. OFDM modulacija
+# 4. OFDM modulacija (TX)
 # ================================================================
 ofdm = OFDMModulator(resource_grid=grid.grid, new_fft_size=fft_size)
-tx_signal, sample_rate = ofdm.modulate()
+tx_signal, fs = ofdm.modulate()
 tx_signal = tx_signal.astype(np.complex64)
 
 # ================================================================
-# 4. Primjena Frequency Offset
+# 5. Frequency offset kanal (CHANNEL)
 # ================================================================
 freq_offset = FrequencyOffset(
     freq_offset_hz=delta_f_hz,
-    sample_rate_hz=sample_rate
+    sample_rate_hz=fs
 )
-rx_signal_ofdm = freq_offset.apply(tx_signal)
+rx_signal = freq_offset.apply(tx_signal)
 
-# QPSK: simulacija frekvencijskog offseta
-t = np.arange(len(qpsk_symbols)) / sample_rate
+# QPSK – čisti efekat frekvencijskog offseta
+t = np.arange(len(qpsk_symbols)) / fs
 qpsk_symbols_rx = qpsk_symbols * np.exp(1j * 2 * np.pi * delta_f_hz * t)
 
 # ================================================================
-# 5. QPSK konstelacije (TX / RX)
+# TX: QPSK konstelacija
 # ================================================================
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(qpsk_symbols), np.imag(qpsk_symbols),
-            s=40, label="QPSK TX")
-plt.title("QPSK Konstelacija TX (bez offseta)")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(qpsk_symbols.real, qpsk_symbols.imag, s=40)
+plt.title("QPSK konstelacija (TX)")
 plt.grid(True)
 plt.axis("equal")
-plt.legend()
 plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_qpsk_constellation_tx.png"),
-    dpi=300, bbox_inches="tight"
-)
-plt.close()
-
-plt.figure(figsize=(6, 6))
-plt.scatter(np.real(qpsk_symbols_rx), np.imag(qpsk_symbols_rx),
-            s=40, label="QPSK RX + Offset")
-plt.title("QPSK Konstelacija RX (frekvencijski offset)")
-plt.xlabel("I")
-plt.ylabel("Q")
-plt.grid(True)
-plt.axis("equal")
-plt.legend()
-plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_qpsk_constellation_rx.png"),
-    dpi=300, bbox_inches="tight"
+    os.path.join(TX_DIR, "offset_qpsk_constellation_tx.png"),
+    dpi=300
 )
 plt.close()
 
 # ================================================================
-# 6. OFDM konstelacija – TX
+# CHANNEL: QPSK konstelacija (efekat offseta)
 # ================================================================
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(tx_signal[:plot_len]),
-            np.imag(tx_signal[:plot_len]),
-            s=5, label="OFDM TX")
-plt.title("OFDM Konstelacija TX (bez offseta)")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(qpsk_symbols_rx.real, qpsk_symbols_rx.imag, s=40)
+plt.title("QPSK konstelacija (frequency offset)")
 plt.grid(True)
 plt.axis("equal")
-plt.legend()
 plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_ofdm_constellation_tx.png"),
-    dpi=300, bbox_inches="tight"
+    os.path.join(CH_DIR, "offset_qpsk_constellation_channel.png"),
+    dpi=300
 )
 plt.close()
 
 # ================================================================
-# 7. OFDM konstelacija – RX (sa offsetom)
+# RX: QPSK konstelacija
 # ================================================================
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(rx_signal_ofdm[:plot_len]),
-            np.imag(rx_signal_ofdm[:plot_len]),
-            s=5, label="OFDM RX + Offset")
-plt.title("OFDM Konstelacija RX (frekvencijski offset)")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(qpsk_symbols_rx.real, qpsk_symbols_rx.imag, s=40)
+plt.title("QPSK konstelacija (RX)")
 plt.grid(True)
 plt.axis("equal")
-plt.legend()
 plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_ofdm_constellation_rx.png"),
-    dpi=300, bbox_inches="tight"
+    os.path.join(RX_DIR, "offset_qpsk_constellation_rx.png"),
+    dpi=300
 )
 plt.close()
 
 # ================================================================
-# 8. OFDM faza – TX
+# TX: OFDM konstelacija
+# ================================================================
+plt.figure(figsize=(6, 6))
+plt.scatter(tx_signal[:plot_len].real,
+            tx_signal[:plot_len].imag, s=5)
+plt.title("OFDM konstelacija (TX)")
+plt.grid(True)
+plt.axis("equal")
+plt.savefig(
+    os.path.join(TX_DIR, "offset_ofdm_constellation_tx.png"),
+    dpi=300
+)
+plt.close()
+
+# ================================================================
+# RX: OFDM konstelacija
+# ================================================================
+plt.figure(figsize=(6, 6))
+plt.scatter(rx_signal[:plot_len].real,
+            rx_signal[:plot_len].imag, s=5)
+plt.title("OFDM konstelacija (RX – frequency offset)")
+plt.grid(True)
+plt.axis("equal")
+plt.savefig(
+    os.path.join(RX_DIR, "offset_ofdm_constellation_rx.png"),
+    dpi=300
+)
+plt.close()
+
+# ================================================================
+# TX: OFDM faza
 # ================================================================
 plt.figure(figsize=(10, 4))
-plt.plot(np.angle(tx_signal[:plot_len]), label="OFDM TX")
-plt.title("OFDM Faza TX")
-plt.xlabel("Uzorak")
-plt.ylabel("Faza [rad]")
+plt.plot(np.angle(tx_signal[:plot_len]))
+plt.title("OFDM faza (TX)")
 plt.grid(True)
-plt.legend()
 plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_ofdm_phase_tx.png"),
-    dpi=300, bbox_inches="tight"
+    os.path.join(TX_DIR, "offset_ofdm_phase_tx.png"),
+    dpi=300
 )
 plt.close()
 
 # ================================================================
-# 9. OFDM faza – RX (sa offsetom)
+# RX: OFDM faza
 # ================================================================
 plt.figure(figsize=(10, 4))
-plt.plot(np.angle(rx_signal_ofdm[:plot_len]),
-         label="OFDM RX + Offset")
-plt.title("OFDM Faza RX (frekvencijski offset)")
-plt.xlabel("Uzorak")
-plt.ylabel("Faza [rad]")
+plt.plot(np.angle(rx_signal[:plot_len]))
+plt.title("OFDM faza (RX – frequency offset)")
 plt.grid(True)
-plt.legend()
 plt.savefig(
-    os.path.join(RESULTS_DIR, "offset_ofdm_phase_rx.png"),
-    dpi=300, bbox_inches="tight"
+    os.path.join(RX_DIR, "offset_ofdm_phase_rx.png"),
+    dpi=300
 )
 plt.close()
+
+print("[OK] Frequency offset example završen.")
+print("Rezultati su snimljeni u examples/results/{tx,channel,rx}/")
