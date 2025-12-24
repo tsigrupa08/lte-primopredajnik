@@ -44,7 +44,7 @@ class OFDMDemodulator:
         self.sample_rate = 15_000 * self.fft_size
 
     # ==============================================================
-    # PARAMETRI OFDM-a (idealno za zajednički OFDMParams)
+    # PARAMETRI OFDM-a
     # ==============================================================
 
     @staticmethod
@@ -57,8 +57,8 @@ class OFDMDemodulator:
             15: 256,
             25: 512,
             50: 1024,
-            75: 1536,
-            100: 2048,
+            75: 1408,
+            100: 1408,
         }
 
         if ndlrb not in fft_map:
@@ -69,10 +69,6 @@ class OFDMDemodulator:
     def _determine_cp_lengths(self):
         """
         Vraća listu duljina CP-a po OFDM simbolu.
-
-        LTE normal CP:
-        - prvi simbol u slotu ima duži CP
-        - ostali simboli imaju kraći CP
         """
 
         if not self.normal_cp:
@@ -112,9 +108,9 @@ class OFDMDemodulator:
         # Osiguraj numpy kompleksni tip
         rx_waveform = np.asarray(rx_waveform, dtype=np.complex64)
 
-        symbols_freq = []     # lista OFDM simbola u frekvenciji
-        sample_idx = 0        # indeks unutar rx_waveform
-        symbol_idx = 0        # redni broj OFDM simbola
+        symbols_freq = []
+        sample_idx = 0
+        symbol_idx = 0
 
         # Petlja dok god ima dovoljno uzoraka za cijeli OFDM simbol
         while True:
@@ -124,48 +120,87 @@ class OFDMDemodulator:
             if sample_idx + total_len > len(rx_waveform):
                 break
 
-            # --------------------------------------------------
-            # 1. Uklanjanje cikličkog prefiksa (CP removal)
-            # --------------------------------------------------
+            # 1. CP removal
             ofdm_symbol_time = rx_waveform[
                 sample_idx + cp_len : sample_idx + total_len
             ]
 
-            # --------------------------------------------------
-            # 2. FFT (vremenska → frekvencijska domena)
-            # --------------------------------------------------
+            # 2. FFT
             ofdm_symbol_freq = np.fft.fft(ofdm_symbol_time)
 
-            # --------------------------------------------------
-            # 3. FFT shift (DC subcarrier u sredinu spektra)
-            # --------------------------------------------------
+            # 3. FFT shift (DC u sredinu)
             ofdm_symbol_freq = np.fft.fftshift(ofdm_symbol_freq)
 
             symbols_freq.append(ofdm_symbol_freq)
 
-            # Pomakni se na sljedeći OFDM simbol
             sample_idx += total_len
             symbol_idx += 1
 
         if len(symbols_freq) == 0:
             raise ValueError("Ulazni signal je prekratak za OFDM demodulaciju")
 
-        # Stack → OFDM grid
-        grid = np.vstack(symbols_freq)
-
-        return grid
+        return np.vstack(symbols_freq)
 
     # ==============================================================
-    # POMOĆNA FUNKCIJA (često korisna kasnije)
+    # AKTIVNI SUBCARRIERS
     # ==============================================================
 
     def extract_active_subcarriers(self, grid):
         """
-        Izdvaja samo aktivne subcarriere iz OFDM grida
-        (korisno za channel estimation / demapping).
+        Izdvaja samo aktivne subcarriere iz OFDM grida.
         """
 
         center = self.fft_size // 2
         half = self.n_subcarriers // 2
 
         return grid[:, center - half : center + half]
+
+
+# ==============================================================
+# PRIMJERI KORIŠTENJA (KAO KOMENTAR)
+# ==============================================================
+
+"""
+PRIMJER 1: Osnovna demodulacija RX signala
+
+demod = OFDMDemodulator(ndlrb=6)
+
+rx_waveform = np.load("rx_capture.npy")   # ili SDR buffer
+grid = demod.demodulate(rx_waveform)
+
+print(grid.shape)
+
+
+PRIMJER 2: Izdvajanje aktivnih subcarriera
+
+active_grid = demod.extract_active_subcarriers(grid)
+print(active_grid.shape)   # (N_sym, 72)
+
+
+PRIMJER 3: Demodulacija jednog OFDM simbola (test)
+
+freq = np.zeros(demod.fft_size, dtype=complex)
+freq[demod.fft_size // 2 + 3] = 1 + 0j
+
+time = np.fft.ifft(np.fft.ifftshift(freq))
+cp = demod.cp_lengths[0]
+
+tx = np.concatenate([time[-cp:], time])
+grid = demod.demodulate(tx)
+
+
+PRIMJER 4: Debug FFT / CP poravnanja
+
+peak = np.argmax(np.abs(grid[0]))
+print("Peak index:", peak)
+
+
+PRIMJER 5: Tipični receiver chain
+
+rx_waveform
+    → OFDMDemodulator.demodulate()
+    → extract_active_subcarriers()
+    → channel estimation
+    → equalization
+    → QAM demapper
+"""
