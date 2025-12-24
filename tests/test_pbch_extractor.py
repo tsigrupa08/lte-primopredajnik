@@ -33,7 +33,8 @@ import numpy as np
 import pytest
 
 from transmitter.resource_grid import create_resource_grid, map_pbch_to_grid
-from receiver.rx_resource_grid_extractor import PBCHExtractor, PBCHConfig
+from receiver.resource_grid_extractor import PBCHExtractor, PBCHConfig
+
 
 
 def rand_qpsk(n: int, seed: int) -> np.ndarray:
