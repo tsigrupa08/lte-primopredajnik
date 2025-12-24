@@ -84,75 +84,66 @@ class QPSKDemapper:
 
 
 # ==============================================================
-# PRIMJERI KORIŠTENJA (NumPy stil – dokumentacijski primjeri)
+# PRIMJERI KORIŠTENJA (samo komentari – dokumentacija)
 # ==============================================================
-
+"""
 # --------------------------------------------------------------
 # Primjer 1: Idealni QPSK simboli (bez šuma)
 # --------------------------------------------------------------
-# QPSK simboli (I + jQ) i pripadajući bitovi:
-#   1 + 1j   → 00
-#  -1 + 1j   → 10
-#   1 - 1j   → 01
-#  -1 - 1j   → 11
-
-symbols_ideal = np.array([
-    1 + 1j,
-   -1 + 1j,
-    1 - 1j,
-   -1 - 1j
-], dtype=np.complex64)
-
-demapper = QPSKDemapper(mode="hard")
-bits_ideal = demapper.demap(symbols_ideal)
-
+# symbols = np.array([
+#     1 + 1j,
+#    -1 + 1j,
+#     1 - 1j,
+#    -1 - 1j
+# ], dtype=np.complex64)
+#
+# demapper = QPSKDemapper(mode="hard")
+# bits = demapper.demap(symbols)
+#
 # Očekivani rezultat:
-# bits_ideal = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+# bits = [0, 0, 1, 0, 0, 1, 1, 1]
 
 
 # --------------------------------------------------------------
 # Primjer 2: QPSK simboli s malim šumom
 # --------------------------------------------------------------
 # Hard decision demapper koristi samo predznak I i Q komponente.
-
-symbols_noisy = np.array([
-    0.8 + 1.2j,
-   -1.1 + 0.9j,
-    0.7 - 1.3j,
-   -0.6 - 0.8j
-], dtype=np.complex64)
-
-bits_noisy = demapper.demap(symbols_noisy)
-
+#
+# symbols = np.array([
+#     0.8 + 1.2j,
+#    -1.1 + 0.9j,
+#     0.7 - 1.3j,
+#    -0.6 - 0.8j
+# ], dtype=np.complex64)
+#
+# bits = demapper.demap(symbols)
+#
 # Očekivani rezultat (isti kao idealni slučaj):
-# bits_noisy = np.array([0, 0, 1, 0, 0, 1, 1, 1], dtype=np.uint8)
+# bits = [0, 0, 1, 0, 0, 1, 1, 1]
 
 
 # --------------------------------------------------------------
 # Primjer 3: Jedan QPSK simbol
 # --------------------------------------------------------------
-# Ulaz može biti i niz duljine 1.
-
-single_symbol = np.array([1 - 1j], dtype=np.complex64)
-bits_single = demapper.demap(single_symbol)
-
+# symbols = np.array([1 - 1j], dtype=np.complex64)
+# bits = demapper.demap(symbols)
+#
 # Očekivani rezultat:
-# bits_single = np.array([0, 1], dtype=np.uint8)
+# bits = [0, 1]
 
 
 # --------------------------------------------------------------
 # Primjer 4: Veći broj simbola (vektorizirana obrada)
 # --------------------------------------------------------------
-# Demapper je u potpunosti vektoriziran i radi nad cijelim nizom.
-
-symbols_many = np.random.choice(
-    [1+1j, -1+1j, 1-1j, -1-1j],
-    size=100
-).astype(np.complex64)
-
-bits_many = demapper.demap(symbols_many)
-
+# symbols = np.random.choice(
+#     [1+1j, -1+1j, 1-1j, -1-1j],
+#     size=100
+# ).astype(np.complex64)
+#
+# bits = demapper.demap(symbols)
+#
 # Napomena:
-# - Duzina izlaza je 2 * len(symbols_many)
+# - Duljina izlaza je 2 * len(symbols)
 # - bits[0::2] → bitovi iz I-komponente (b0)
 # - bits[1::2] → bitovi iz Q-komponente (b1)
+"""
