@@ -50,3 +50,5 @@ lte-primopredajnik/
 
 
 Automatski generisana tehnička dokumentacija (Doxygen): [docs/html/index.html](https://tsigrupa08.github.io/lte-primopredajnik/html/)
+
+
