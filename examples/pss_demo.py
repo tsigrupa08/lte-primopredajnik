@@ -15,6 +15,7 @@ import sys
 # Dodaj root projekta u PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 

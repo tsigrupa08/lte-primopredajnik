@@ -14,6 +14,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from typing import Iterable, Tuple
+import os
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -29,6 +30,14 @@ RESULTS_BASE = os.path.join(BASE_DIR, "results")
 TX_DIR = os.path.join(RESULTS_BASE, "tx")
 
 os.makedirs(TX_DIR, exist_ok=True)
+
+# -----------------------------------------------------------------------------
+# PUTANJA ZA FIGURE (JEDINA FUNKCIONALNA IZMJENA)
+# -----------------------------------------------------------------------------
+BASE_DIR = os.path.dirname(__file__)
+FIGURES_DIR = os.path.join(BASE_DIR, "figures")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+
 
 # -----------------------------------------------------------------------------
 # KREIRANJE DEMO GRIDA (PSS + PBCH)

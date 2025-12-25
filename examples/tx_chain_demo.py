@@ -94,7 +94,6 @@ def plot_pbch_qpsk_constellation(pbch_symbols: np.ndarray) -> None:
     )
     plt.close(fig)
 
-
 def plot_ofdm_time_segment(
     waveform: np.ndarray,
     sample_rate: float,
