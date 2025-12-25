@@ -8,7 +8,6 @@ from transmitter.pbch import PBCHEncoder
 class TestCRCChecker:
     """
     Test suite za CRCChecker (PBCH RX).
-
     Pokriva:
     - happy path (valid payload + CRC)
     - single-bit error

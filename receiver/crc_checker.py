@@ -4,7 +4,9 @@ crc_checker.py
 
 CRC provjera za PBCH RX lanac.
 
-CRC implementacija je 1:1 preuzeta iz PBCH TX enkodera.
+CRC implementacija je 1:1 preuzeta iz PBCH TX enkodera
+i koristi se na prijemnoj strani za provjeru ispravnosti
+dekodiranih PBCH bitova.
 """
 
 from __future__ import annotations
@@ -13,14 +15,29 @@ import numpy as np
 
 class CRCChecker:
     """
-    CRC checker for PBCH.
+    CRC checker za PBCH (RX strana).
 
     Parameters
     ----------
-    poly : int
-        CRC polinom (npr. 0x1021).
-    init : int
-        Početna vrijednost CRC registra (npr. 0xFFFF).
+    poly : int, optional
+        CRC polinom (default: 0x1021, CRC-16-CCITT).
+    init : int, optional
+        Početna vrijednost CRC registra (default: 0xFFFF).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from rx.crc_checker import CRCChecker
+    >>>
+    >>> payload = np.array([1, 0, 1, 1, 0, 1], dtype=np.uint8)
+    >>> crc = CRCChecker()
+    >>>
+    >>> crc_bits = crc._crc16(payload)
+    >>> bits_with_crc = np.concatenate([payload, crc_bits])
+    >>>
+    >>> payload_rx, ok = crc.check(bits_with_crc)
+    >>> ok
+    True
     """
 
     def __init__(self, poly: int = 0x1021, init: int = 0xFFFF):
@@ -37,13 +54,20 @@ class CRCChecker:
         Parameters
         ----------
         bits : np.ndarray
-            Ulazni bitovi (0/1).
+            Ulazni bitovi (0/1), shape (N,).
 
         Returns
         -------
         np.ndarray
-            CRC remainder (16 bita).
+            CRC remainder (16 bita), shape (16,).
+
+        Notes
+        -----
+        - Implementacija je bit-po-bit.
+        - Identična je CRC funkciji korištenoj u PBCH TX enkoderu.
         """
+        bits = np.asarray(bits, dtype=np.uint8).flatten()
+
         reg = self.init
 
         for b in bits:
@@ -54,10 +78,13 @@ class CRCChecker:
                 else:
                     reg = (reg << 1) & 0xFFFF
 
-        return np.array([(reg >> (15 - i)) & 1 for i in range(16)], dtype=np.uint8)
+        return np.array(
+            [(reg >> (15 - i)) & 1 for i in range(16)],
+            dtype=np.uint8
+        )
 
     # ------------------------------------------------------------------
-    # CHECK
+    # CRC CHECK
     # ------------------------------------------------------------------
     def check(self, bits_with_crc: np.ndarray) -> tuple[np.ndarray, bool]:
         """
@@ -74,8 +101,18 @@ class CRCChecker:
             Informacijski bitovi (bez CRC-a).
         ok : bool
             True ako CRC prolazi, False inače.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> crc = CRCChecker()
+        >>> bits = np.array([1, 0, 1, 0], dtype=np.uint8)
+        >>> bits_crc = np.concatenate([bits, crc._crc16(bits)])
+        >>> payload, ok = crc.check(bits_crc)
+        >>> ok
+        True
         """
-        bits = np.asarray(bits_with_crc, dtype=np.uint8)
+        bits = np.asarray(bits_with_crc, dtype=np.uint8).flatten()
 
         if bits.size < 16:
             raise ValueError("Ulaz mora sadržavati barem 16 CRC bitova.")
@@ -84,6 +121,20 @@ class CRCChecker:
         crc_rx = bits[-16:]
 
         crc_calc = self._crc16(payload)
-
         ok = np.array_equal(crc_calc, crc_rx)
+
         return payload, ok
+
+
+# ------------------------------------------------------------------
+# Jednostavan lokalni test (opcionalno)
+# ------------------------------------------------------------------
+if __name__ == "__main__":
+    payload = np.array([1, 0, 1, 1, 0, 1], dtype=np.uint8)
+    crc = CRCChecker()
+
+    bits_with_crc = np.concatenate([payload, crc._crc16(payload)])
+    payload_rx, ok = crc.check(bits_with_crc)
+
+    print("Payload RX :", payload_rx)
+    print("CRC OK     :", ok)
