@@ -80,8 +80,8 @@ Notes
         # QPSK demapper
         self.demapper = QPSKDemapper(mode="hard")
 
-        # De-rate matcher (parametri zavise od tvoje TX konfiguracije)
-        self.deratematcher = DeRateMatcher(E_rx=864, N_coded=192)
+        # De-rate matcher (parametri zavise od TX konfiguracije)
+        self.deratematcher = DeRateMatcher(E_rx=1920, N_coded=120)
 
         # Viterbi decoder (isti generatori kao u TX)
         self.viterbi = ViterbiDecoder(constraint_len=7,
