@@ -51,29 +51,4 @@ lte-primopredajnik/
 
 Automatski generisana tehnička dokumentacija (Doxygen): [docs/html/index.html](https://tsigrupa08.github.io/lte-primopredajnik/html/)
 
-# DeRateMatcher
 
-`DeRateMatcher` je Python klasa za **de-rate-matching primljenih bitova** u LTE prijemniku.  
-Vraća bitove u originalni raspored prije rate matchinga, kao soft ili hard vrijednosti.
-
----
-
-## Primjer korištenja
-
-```python
-import numpy as np
-from derate_matcher import DeRateMatcher
-
-# Inicijalizacija
-matcher = DeRateMatcher(E_rx=1.0, N_coded=100)
-
-# Primljeni bitovi nakon rate matchinga (soft vrijednosti ili 0/1)
-bits_rx = np.random.rand(120)
-
-# De-rate-matching: soft vrijednosti
-soft_bits = matcher.accumulate(bits_rx, soft=True)
-print("Soft bits:", soft_bits)
-
-# De-rate-matching: hard bitovi
-hard_bits = matcher.accumulate(bits_rx, soft=False)
-print("Hard bits:", hard_bits)
