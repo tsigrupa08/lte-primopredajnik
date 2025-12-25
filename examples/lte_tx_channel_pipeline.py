@@ -1,52 +1,41 @@
-"""
-LTE Tx → Kanal pipeline sa vizualizacijom PBCH konstelacije.
+from __future__ import annotations
 
-Ovaj skript:
-1) Kreira LTE predajni lanac (LTETxChain),
-2) Enkodira 24-bitni MIB u PBCH QPSK,
-3) Generiše OFDM talasni oblik (Tx),
-4) Prolazi kroz kompozitni LTE kanal (frekvencijski ofset + AWGN),
-5) Iscrtava dio Tx/Rx talasnog oblika,
-6) Iscrtava PBCH QPSK konstelaciju (predajna strana).
+import sys
+import os
 
-Koristi NumPy stil i modularnu organizaciju.
-"""
+# ------------------------------------------------
+# Dodaj root projekta u PYTHONPATH
+# ------------------------------------------------
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Import LTE predajnog lanca i kompozitnog kanala
 from transmitter.LTETxChain import LTETxChain
 from channel.lte_channel import LTEChannel
 from transmitter.pbch import PBCHEncoder
 
+# ================================================================
+# Results folders
+# ================================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESULTS_BASE = os.path.join(BASE_DIR, "results")
 
-# -----------------------------------------------------------------------------
-# PUTANJA ZA FIGURE
-# -----------------------------------------------------------------------------
-BASE_DIR = os.path.dirname(__file__)
-FIGURES_DIR = os.path.join(BASE_DIR, "figures")
-os.makedirs(FIGURES_DIR, exist_ok=True)
+TX_DIR = os.path.join(RESULTS_BASE, "tx")
+CH_DIR = os.path.join(RESULTS_BASE, "channel")
+RX_DIR = os.path.join(RESULTS_BASE, "rx")
 
+os.makedirs(TX_DIR, exist_ok=True)
+os.makedirs(CH_DIR, exist_ok=True)
+os.makedirs(RX_DIR, exist_ok=True)
 
+# ================================================================
+# POMOĆNE FUNKCIJE
+# ================================================================
 def make_mib_bits(num_bits: int = 24) -> np.ndarray:
-    """
-    Kreira jednostavan 24-bitni MIB vektor.
-
-    Parametri
-    ---------
-    num_bits : int
-        Broj bitova za MIB (default 24).
-
-    Povratna vrijednost
-    -------------------
-    np.ndarray
-        1D niz oblika (num_bits,) sa vrijednostima {0,1}.
-    """
     rng = np.random.default_rng(42)
-    bits = rng.integers(low=0, high=2, size=num_bits, dtype=np.int64)
-    return bits
+    return rng.integers(0, 2, size=num_bits, dtype=np.uint8)
 
 
 def build_transmitter(
@@ -55,25 +44,6 @@ def build_transmitter(
     num_subframes: int = 4,
     normal_cp: bool = True,
 ) -> LTETxChain:
-    """
-    Kreira LTE predajni lanac.
-
-    Parametri
-    ---------
-    n_id_2 : int
-        Fizički identitet ćelije (NID2), vrijednost 0–2.
-    ndlrb : int
-        Broj downlink resurs blokova (minimalno 6 za 1.4 MHz).
-    num_subframes : int
-        Broj subframe-ova.
-    normal_cp : bool
-        Ako je True koristi se normalni cyclic prefix, inače extended CP.
-
-    Povratna vrijednost
-    -------------------
-    LTETxChain
-        Konfigurisani LTE predajni lanac.
-    """
     return LTETxChain(
         n_id_2=n_id_2,
         ndlrb=ndlrb,
@@ -82,25 +52,11 @@ def build_transmitter(
     )
 
 
-def generate_tx_waveform(tx: LTETxChain, mib_bits: np.ndarray) -> tuple[np.ndarray, float]:
-    """
-    Generiše LTE OFDM talasni oblik sa PSS + PBCH.
-
-    Parametri
-    ---------
-    tx : LTETxChain
-        LTE predajni lanac.
-    mib_bits : np.ndarray
-        24-bitni MIB vektor za PBCH enkodiranje.
-
-    Povratna vrijednost
-    -------------------
-    tuple
-        (waveform, fs) gdje je waveform kompleksni signal u vremenskoj domeni,
-        a fs sample rate u Hz.
-    """
-    waveform, fs = tx.generate_waveform(mib_bits=mib_bits)
-    return waveform, fs
+def generate_tx_waveform(
+    tx: LTETxChain,
+    mib_bits: np.ndarray,
+) -> tuple[np.ndarray, float]:
+    return tx.generate_waveform(mib_bits=mib_bits)
 
 
 def build_channel(
@@ -110,27 +66,6 @@ def build_channel(
     seed: int | None = 123,
     initial_phase_rad: float = 0.0,
 ) -> LTEChannel:
-    """
-    Kreira kompozitni LTE kanal (frekvencijski ofset + AWGN).
-
-    Parametri
-    ---------
-    freq_offset_hz : float
-        Frekvencijski ofset u Hz (Δf).
-    fs : float
-        Sample rate u Hz.
-    snr_db : float
-        Ciljani SNR u dB.
-    seed : int ili None
-        Sjeme za AWGN generator.
-    initial_phase_rad : float
-        Početna faza kompleksnog eksponencijala.
-
-    Povratna vrijednost
-    -------------------
-    LTEChannel
-        Konfigurisani kompozitni kanal.
-    """
     return LTEChannel(
         freq_offset_hz=freq_offset_hz,
         sample_rate_hz=fs,
@@ -141,154 +76,117 @@ def build_channel(
 
 
 def apply_channel(ch: LTEChannel, x: np.ndarray) -> np.ndarray:
-    """
-    Primjenjuje LTE kanal na predajni talasni oblik.
-
-    Parametri
-    ---------
-    ch : LTEChannel
-        Kompozitni kanal.
-    x : np.ndarray
-        Kompleksni predajni signal.
-
-    Povratna vrijednost
-    -------------------
-    np.ndarray
-        Kompleksni primljeni signal nakon impairments-a.
-    """
     ch.reset()
-    y = ch.apply(x)
-    return y
+    return ch.apply(x)
 
 
-def encode_pbch_symbols(
-    mib_bits: np.ndarray,
-    target_bits: int = 384,
-    verbose: bool = False,
-) -> np.ndarray:
+def encode_pbch_symbols(mib_bits: np.ndarray) -> np.ndarray:
     """
-    Enkodira PBCH iz MIB bitova i vraća QPSK simbole (predajna konstelacija).
-
-    Parametri
-    ---------
-    mib_bits : np.ndarray
-        24-bitni MIB vektor.
-    target_bits : int
-        Dužina enkodiranog PBCH (384 bita).
-    verbose : bool
-        Flag za detaljan ispis.
-
-    Povratna vrijednost
-    -------------------
-    np.ndarray
-        Kompleksni QPSK simboli za PBCH.
+    Enkodira PBCH iz MIB bitova i vraća QPSK simbole (TX konstelacija).
     """
-    enc = PBCHEncoder(target_bits=target_bits, verbose=verbose)
-    symbols = enc.encode(mib_bits)
-    return symbols
+    enc = PBCHEncoder(verbose=False)
+    return enc.encode(mib_bits)
 
-
+# ================================================================
+# PLOT FUNKCIJE
+# ================================================================
 def plot_waveforms(
     tx: np.ndarray,
     rx: np.ndarray,
     fs: float,
     num_samples: int = 2000,
 ) -> None:
-    """
-    Iscrtava segment Tx i Rx talasnog oblika (realni i imaginarni dio).
 
-    Parametri
-    ---------
-    tx : np.ndarray
-        Predajni signal.
-    rx : np.ndarray
-        Primljeni signal.
-    fs : float
-        Sample rate u Hz.
-    num_samples : int
-        Broj uzoraka za prikaz.
-    """
     n = min(num_samples, tx.size, rx.size)
     t = np.arange(n) / fs
 
-    plt.figure(figsize=(12, 6))
-    plt.subplot(2, 1, 1)
-    plt.plot(t, tx[:n].real, label="Tx Real")
-    plt.plot(t, tx[:n].imag, label="Tx Imag", alpha=0.8)
-    plt.title("Predajni talasni oblik (segment)")
-    plt.xlabel("Vrijeme [s]")
-    plt.ylabel("Amplituda")
+    # ---------------- TX waveform ----------------
+    plt.figure(figsize=(12, 4))
+    plt.plot(t, tx[:n].real, label="TX Real")
+    plt.plot(t, tx[:n].imag, label="TX Imag", alpha=0.7)
+    plt.title("LTE TX waveform (segment)")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Amplitude")
     plt.legend()
     plt.grid(True, alpha=0.3)
-
-    plt.subplot(2, 1, 2)
-    plt.plot(t, rx[:n].real, label="Rx Real")
-    plt.plot(t, rx[:n].imag, label="Rx Imag", alpha=0.8)
-    plt.title("Primljeni talasni oblik (segment)")
-    plt.xlabel("Vrijeme [s]")
-    plt.ylabel("Amplituda")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-
     plt.tight_layout()
-    plt.savefig(os.path.join(FIGURES_DIR, "tx_rx_waveforms.png"), dpi=300, bbox_inches="tight")
-    plt.show()
+    plt.savefig(
+        os.path.join(TX_DIR, "lte_tx_waveform_segment.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
+
+    # ---------------- RX waveform ----------------
+    plt.figure(figsize=(12, 4))
+    plt.plot(t, rx[:n].real, label="RX Real")
+    plt.plot(t, rx[:n].imag, label="RX Imag", alpha=0.7)
+    plt.title("LTE RX waveform (after channel)")
+    plt.xlabel("Time [s]")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(
+        os.path.join(RX_DIR, "lte_rx_waveform_segment.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
 
 
-def plot_constellation(symbols: np.ndarray, title: str = "PBCH QPSK konstelacija (Tx)") -> None:
-    """
-    Scatter-plot kompleksne konstelacije.
-
-    Parametri
-    ---------
-    symbols : np.ndarray
-        Kompleksni simboli za prikaz.
-    title : str
-        Naslov grafa.
-    """
+def plot_pbch_constellation(symbols: np.ndarray) -> None:
     plt.figure(figsize=(6, 6))
-    plt.scatter(symbols.real, symbols.imag, s=10, alpha=0.7)
+    plt.scatter(symbols.real, symbols.imag, s=12, alpha=0.7)
     plt.axhline(0.0, color="gray", linewidth=0.8)
     plt.axvline(0.0, color="gray", linewidth=0.8)
     plt.grid(True, alpha=0.3)
-    plt.title(title)
+    plt.title("PBCH QPSK konstelacija (TX)")
     plt.xlabel("In-phase")
     plt.ylabel("Quadrature")
     plt.axis("equal")
-    plt.savefig(os.path.join(FIGURES_DIR, "pbch_constellation_tx.png"), dpi=300, bbox_inches="tight")
-    plt.show()
 
+    plt.savefig(
+        os.path.join(TX_DIR, "lte_pbch_constellation_tx.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close()
 
+# ================================================================
+# MAIN
+# ================================================================
 def main() -> None:
-    """
-    Izvršava cijeli pipeline:
-    - Kreira Tx lanac
-    - Generiše MIB
-    - Generiše OFDM talasni oblik
-    - Kreira i primjenjuje kanal
-    - Iscrtava Tx/Rx talasne oblike
-    - Iscrtava PBCH konstelaciju (Tx strana)
-    """
-    tx = build_transmitter(n_id_2=0, ndlrb=6, num_subframes=4, normal_cp=True)
-    mib_bits = make_mib_bits(num_bits=24)
-    tx_waveform, fs = generate_tx_waveform(tx, mib_bits=mib_bits)
 
-    snr_db = 10.0
-    delta_f_hz = 300.0
+    # 1) LTE predajni lanac
+    tx_chain = build_transmitter()
+
+    # 2) MIB (24 bita)
+    mib_bits = make_mib_bits(24)
+
+    # 3) TX OFDM waveform
+    tx_waveform, fs = generate_tx_waveform(tx_chain, mib_bits)
+
+    # 4) Kanal (frequency offset + AWGN)
     ch = build_channel(
-        freq_offset_hz=delta_f_hz,
+        freq_offset_hz=300.0,
         fs=fs,
-        snr_db=snr_db,
+        snr_db=10.0,
         seed=123,
-        initial_phase_rad=0.0,
     )
 
+    # 5) RX waveform
     rx_waveform = apply_channel(ch, tx_waveform)
 
-    plot_waveforms(tx_waveform, rx_waveform, fs, num_samples=2000)
+    # 6) Snimi TX / RX waveform
+    plot_waveforms(tx_waveform, rx_waveform, fs)
 
-    pbch_symbols = encode_pbch_symbols(mib_bits=mib_bits, target_bits=384, verbose=False)
-    plot_constellation(pbch_symbols, title="PBCH QPSK konstelacija (Tx)")
+    # 7) PBCH konstelacija (TX)
+    pbch_symbols = encode_pbch_symbols(mib_bits)
+    plot_pbch_constellation(pbch_symbols)
+
+    print("[OK] LTE Tx → Channel → Rx example završen.")
+    print("Rezultati su snimljeni u examples/results/{tx,rx}/")
 
 
 if __name__ == "__main__":

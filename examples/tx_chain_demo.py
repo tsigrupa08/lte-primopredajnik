@@ -4,25 +4,10 @@ tx_chain_demo
 
 Primjer kompletnog LTE predajnog lanca (TX chain) i vizualizacije:
 
-* QPSK konstelacija PBCH simbola
-* dio OFDM talasnog oblika u vremenu (realni dio, imaginarni dio i amplituda)
+- PBCH QPSK konstelacija
+- OFDM talasni oblik (real, imag, |s[n]|)
 
-Skripta koristi LTETxChain iz paketa ``transmitter``:
-
-* :class:`transmitter.LTETxChain.LTETxChain`
-
-Kako pokrenuti
---------------
-
-Iz root direktorija projekta pokreni:
-
-.. code-block:: bash
-
-    python -m examples.tx_chain_demo
-
-Nakon pokretanja će se otvoriti dva prozora sa grafovima i snimiće se PNG slike u ``examples/``:
-1) PBCH QPSK konstelacija
-2) Segment OFDM signala u vremenu
+TX-only demonstracija (bez kanala).
 """
 
 from __future__ import annotations
@@ -35,9 +20,9 @@ from typing import Iterable, Optional
 import numpy as np
 import matplotlib.pyplot as plt
 
-# ---------------------------------------------------------------------------#
-# Podešavanje putanje do projekta da bi se "transmitter" paket mogao uvesti
-# ---------------------------------------------------------------------------#
+# ------------------------------------------------
+# Dodaj root projekta u PYTHONPATH
+# ------------------------------------------------
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -45,28 +30,22 @@ if PROJECT_ROOT not in sys.path:
 from transmitter.LTETxChain import LTETxChain
 from transmitter.pbch import PBCHEncoder
 
-EXAMPLES_DIR = os.path.dirname(os.path.abspath(__file__))
+# ================================================================
+# Results folder (TX-only)
+# ================================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESULTS_BASE = os.path.join(BASE_DIR, "results")
+TX_DIR = os.path.join(RESULTS_BASE, "tx")
+os.makedirs(TX_DIR, exist_ok=True)
 
-# ---------------------------------------------------------------------------#
-# PUTANJA ZA FIGURE (JEDINA FUNKCIONALNA IZMJENA)
-# ---------------------------------------------------------------------------#
-FIGURES_DIR = os.path.join(EXAMPLES_DIR, "figures")
-os.makedirs(FIGURES_DIR, exist_ok=True)
-
-
-# ---------------------------------------------------------------------------#
-# Pomoćno: PBCHEncoder kompatibilno kreiranje (da radi i ako se potpis razlikuje)
-# ---------------------------------------------------------------------------#
+# ================================================================
+# PBCH helper
+# ================================================================
 def _make_pbch_encoder(target_bits: int = 1920) -> PBCHEncoder:
-    """
-    Pravi PBCHEncoder robustno. Cilj nam je da dobijemo ~960 QPSK simbola
-    (tj. 1920 bita nakon rate-matchinga).
-    """
     sig = inspect.signature(PBCHEncoder)
     params = sig.parameters
     kwargs = {}
 
-    # najčešći parametri koje si koristila
     if "target_bits" in params:
         kwargs["target_bits"] = target_bits
     if "verbose" in params:
@@ -76,169 +55,125 @@ def _make_pbch_encoder(target_bits: int = 1920) -> PBCHEncoder:
 
 
 def _pbch_symbols_from_mib(mib_bits: np.ndarray) -> np.ndarray:
-    """
-    Generiše PBCH QPSK simbole direktno iz MIB bitova,
-    da konstelaciju crtamo iz “čistih” simbola.
-    """
     encoder = _make_pbch_encoder(target_bits=1920)
     syms = encoder.encode(mib_bits)
     return np.asarray(syms, dtype=np.complex128).flatten()
 
-
-# ---------------------------------------------------------------------------#
-# Vizualizacija
-# ---------------------------------------------------------------------------#
-def plot_pbch_qpsk_constellation(pbch_symbols: np.ndarray) -> plt.Figure:
-    """
-    Crta QPSK konstelaciju PBCH simbola.
-
-    Popravka je SAMO za vizualizaciju:
-    - ako simboli imaju velike vrijednosti (npr. ~180), pretpostavimo da je to
-      uint8 wrap (-1 -> 255), pa ih vratimo u signed domen (+1/-1)
-    - zatim normalizujemo snagu i fiksiramo ose da QPSK bude jasno vidljiv
-    """
+# ================================================================
+# PLOT FUNKCIJE
+# ================================================================
+def plot_pbch_qpsk_constellation(pbch_symbols: np.ndarray) -> None:
     syms = np.asarray(pbch_symbols).flatten()
     syms = syms[np.isfinite(syms)]
-
-    # izbaci nule (ako ih ima)
     syms = syms[np.abs(syms) > 1e-12]
 
     if syms.size == 0:
-        raise ValueError("Nema PBCH simbola za plot (sve nule ili NaN/Inf).")
+        raise ValueError("Nema PBCH simbola za plot.")
 
-    max_abs = float(np.max(np.abs(syms)))
-
-    # Ako vidiš nešto tipa 180, 200, itd. -> “wrap” slučaj
-    if max_abs > 5.0:
-        s = np.sqrt(2.0)
-        # vraćamo na “0/1/255” skalu pa u signed
-        r_u = np.round(syms.real * s).astype(int)
-        i_u = np.round(syms.imag * s).astype(int)
-
-        r_s = np.where(r_u > 127, r_u - 256, r_u)  # 255 -> -1
-        i_s = np.where(i_u > 127, i_u - 256, i_u)
-
-        syms = (r_s + 1j * i_s) / s
-
-    # Normalizacija snage (da bude lijepo oko idealnih tačaka)
-    p = float(np.mean(np.abs(syms) ** 2))
-    if p > 0.0:
-        syms = syms / np.sqrt(p)
+    syms = syms / np.sqrt(np.mean(np.abs(syms) ** 2))
 
     fig, ax = plt.subplots(figsize=(6, 6))
+    ax.scatter(syms.real, syms.imag, s=16, alpha=0.6)
 
-    ax.scatter(
-        syms.real,
-        syms.imag,
-        s=16,
-        alpha=0.6,
-        label="PBCH QPSK simboli",
-    )
+    ideal = np.array([1+1j, 1-1j, -1-1j, -1+1j]) / np.sqrt(2)
+    for pt in ideal:
+        ax.scatter(pt.real, pt.imag, marker="x", s=100, linewidths=2)
 
-    # Idealne QPSK tačke (Gray mapping): 00, 01, 11, 10
-    ideal = np.array([1 + 1j, 1 - 1j, -1 - 1j, -1 + 1j], dtype=np.complex128) / np.sqrt(2)
-    labels = ["00", "01", "11", "10"]
-
-    for sym, lab in zip(ideal, labels):
-        ax.scatter(sym.real, sym.imag, marker="x", s=100, linewidths=2, label=f"Idealna tačka {lab}")
-        ax.text(sym.real * 1.12, sym.imag * 1.12, lab, fontsize=10, ha="center", va="center")
-
-    ax.set_title("PBCH QPSK konstelacija", fontsize=12)
-    ax.set_xlabel("I (in-phase komponenta)")
-    ax.set_ylabel("Q (quadrature komponenta)")
+    ax.set_title("PBCH QPSK konstelacija (TX)")
+    ax.set_xlabel("I")
+    ax.set_ylabel("Q")
     ax.grid(True, linestyle="--", alpha=0.5)
-    ax.set_aspect("equal", adjustable="box")
-
-    # Fiksne ose: QPSK uvijek lijepo vidljiv
+    ax.set_aspect("equal")
     ax.set_xlim(-1.5, 1.5)
     ax.set_ylim(-1.5, 1.5)
 
-    ax.legend(loc="best")
-
-    save_path = os.path.join(FIGURES_DIR, "results_pbch_qpsk_constellation.png")
-    fig.savefig(save_path, dpi=300)
-    print(f"[OK] Spremljena PBCH konstelacija → {save_path}")
-    print(f"[DBG] max |sym| prije sanacije: {max_abs:.3g}")
-
-    return fig
-
+    fig.savefig(
+        os.path.join(TX_DIR, "tx_chain_pbch_constellation.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close(fig)
 
 def plot_ofdm_time_segment(
     waveform: np.ndarray,
     sample_rate: float,
-    num_samples: int = 3000,
-    start_sample: int = 0,
-) -> plt.Figure:
+    num_samples: int = 4000,
+) -> None:
     """
-    Crta dio OFDM talasnog oblika u vremenu (real, imag, |.|).
+    OFDM talasni oblik – tri odvojena prikaza:
+    1) realni dio
+    2) imaginarni dio
+    3) apsolutna vrijednost |s[n]|
     """
-    end_sample = min(start_sample + num_samples, waveform.size)
-    seg = waveform[start_sample:end_sample]
-    t = np.arange(seg.size) / float(sample_rate)
+    seg = waveform[:num_samples]
+    t = np.arange(seg.size) / sample_rate
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, axes = plt.subplots(3, 1, figsize=(12, 8), sharex=True)
 
-    ax.plot(t, seg.real, label="Realni dio s[n]")
-    ax.plot(t, seg.imag, linestyle="--", label="Imaginarni dio s[n]")
-    ax.plot(t, np.abs(seg), linestyle=":", label="Apsolutna vrijednost |s[n]|")
+    # --- Realni dio ---
+    axes[0].plot(t, seg.real, color="tab:blue")
+    axes[0].set_title("OFDM – realni dio (TX)")
+    axes[0].set_ylabel("Amplituda")
+    axes[0].grid(True, alpha=0.4)
 
-    ax.set_title("Dio OFDM talasnog oblika u vremenu", fontsize=12)
-    ax.set_xlabel("t [s]")
-    ax.set_ylabel("Amplituda")
-    ax.grid(True, linestyle="--", alpha=0.5)
-    ax.legend(loc="best")
+    # --- Imaginarni dio ---
+    axes[1].plot(t, seg.imag, color="tab:orange")
+    axes[1].set_title("OFDM – imaginarni dio (TX)")
+    axes[1].set_ylabel("Amplituda")
+    axes[1].grid(True, alpha=0.4)
 
-    save_path = os.path.join(FIGURES_DIR, "results_ofdm_time_segment.png")
-    fig.savefig(save_path, dpi=300)
-    print(f"[OK] Spremljen OFDM segment → {save_path}")
+    # --- Apsolutna vrijednost ---
+    axes[2].plot(t, np.abs(seg), color="tab:green")
+    axes[2].set_title("OFDM – |s[n]| (TX)")
+    axes[2].set_xlabel("t [s]")
+    axes[2].set_ylabel("Amplituda")
+    axes[2].grid(True, alpha=0.4)
 
-    return fig
+    fig.tight_layout()
 
+    fig.savefig(
+        os.path.join(TX_DIR, "tx_chain_ofdm_time_segment.png"),
+        dpi=300,
+        bbox_inches="tight",
+    )
+    plt.close(fig)
 
-# ---------------------------------------------------------------------------#
-# Glavni demo (preko LTETxChain)
-# ---------------------------------------------------------------------------#
+# ================================================================
+# MAIN
+# ================================================================
 def run_tx_chain_demo(
     n_id_2: int = 0,
     ndlrb: int = 6,
-    num_subframes: int = 4,   # ostavljeno 4 jer tvoj LTETxChain trenutno to traži
+    num_subframes: int = 4,
     normal_cp: bool = True,
     mib_bits: Optional[Iterable[int]] = None,
 ) -> None:
-    # MIB (24 bita)
+
     if mib_bits is None:
         mib = np.random.randint(0, 2, 24, dtype=np.uint8)
     else:
-        mib = np.array(list(mib_bits), dtype=np.uint8).flatten()
+        mib = np.array(list(mib_bits), dtype=np.uint8)
         if mib.size != 24:
-            raise ValueError("mib_bits mora imati tačno 24 bita.")
+            raise ValueError("MIB mora imati tačno 24 bita.")
 
-    # TX chain preko tvoje klase
     tx = LTETxChain(
         n_id_2=n_id_2,
         ndlrb=ndlrb,
         num_subframes=num_subframes,
         normal_cp=normal_cp,
     )
-    waveform, fs = tx.generate_waveform(mib_bits=mib)
 
-    # PBCH simboli za plot: generišemo “čiste” PBCH QPSK simbole iz istih MIB bitova
+    waveform, fs = tx.generate_waveform(mib_bits=mib)
     pbch_symbols = _pbch_symbols_from_mib(mib)
 
-    print(f"MIB bits ({mib.size}): {mib}")
-    print(f"Generisani waveform: {waveform.size} uzoraka, fs = {fs} Hz")
-    print(f"PBCH QPSK simbola (prije filtriranja): {pbch_symbols.size}")
-    if pbch_symbols.size > 0:
-        print(f"[DBG] max |PBCH sym| = {np.max(np.abs(pbch_symbols)):.3g}")
+    print(f"[TX] MIB bits: {mib}")
+    print(f"[TX] Waveform length: {waveform.size}, fs = {fs} Hz")
 
-    # 1) PBCH QPSK konstelacija
     plot_pbch_qpsk_constellation(pbch_symbols)
+    plot_ofdm_time_segment(waveform, fs)
 
-    # 2) Dio OFDM talasnog oblika u vremenu
-    plot_ofdm_time_segment(waveform, fs, num_samples=4000)
-
-    plt.tight_layout()
-    plt.show()
+    print("[OK] TX chain demo završen.")
+    print("Rezultati su u examples/results/tx/")
 
 
 if __name__ == "__main__":

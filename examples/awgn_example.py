@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import numpy as np
@@ -6,179 +7,146 @@ import matplotlib.pyplot as plt
 
 from transmitter.pss import PSSGenerator
 from transmitter.resource_grid import ResourceGrid
-from transmitter.pbch import PBCHEncoder
 from transmitter.ofdm import OFDMModulator
 from channel.awgn_channel import AWGNChannel
 
-# ------------------------------------------------
-# Output directory za figure (examples/figures)
-# ------------------------------------------------
-FIG_DIR = os.path.join(os.path.dirname(__file__), "figures")
-os.makedirs(FIG_DIR, exist_ok=True)
+# ================================================================
+# Results folders
+# ================================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RESULTS_BASE = os.path.join(BASE_DIR, "results")
 
-# ------------------------------------------------
+TX_DIR = os.path.join(RESULTS_BASE, "tx")
+CH_DIR = os.path.join(RESULTS_BASE, "channel")
+RX_DIR = os.path.join(RESULTS_BASE, "rx")
+
+os.makedirs(TX_DIR, exist_ok=True)
+os.makedirs(CH_DIR, exist_ok=True)
+os.makedirs(RX_DIR, exist_ok=True)
+
+# ================================================================
 # Parametri
-# ------------------------------------------------
+# ================================================================
 ndlrb = 6
 num_subframes = 1
 pss_symbol_idx = 6
 pbch_symbol_idx = 0
 snr_db = 10
+fft_size = 128
 
-# ------------------------------------------------
-# 1. PSS signal
-# ------------------------------------------------
+# ================================================================
+# 1. PSS signal (TX)
+# ================================================================
 pss_signal = PSSGenerator.generate(1)
 
-# ------------------------------------------------
-# 2. PBCH simboli (QPSK)
-# ------------------------------------------------
-pbch_symbols_ideal = np.array([
+# ================================================================
+# 2. PBCH QPSK simboli (TX)
+# ================================================================
+pbch_symbols = np.array([
     1 + 1j,
     -1 + 1j,
     -1 - 1j,
     1 - 1j
 ]) / np.sqrt(2)
+pbch_symbols = np.tile(pbch_symbols, 50)
 
-pbch_symbols = np.tile(pbch_symbols_ideal, 50)
-
-# AWGN na PBCH
-sigma_pbch = np.sqrt(np.mean(np.abs(pbch_symbols)**2) / (10**(snr_db/10) * 2))
-rng = np.random.default_rng(42)
-pbch_symbols_awgn = pbch_symbols + sigma_pbch * (
-    rng.standard_normal(len(pbch_symbols)) + 1j * rng.standard_normal(len(pbch_symbols))
+# ================================================================
+# 3. Resource grid (TX)
+# ================================================================
+grid = ResourceGrid(
+    ndlrb=ndlrb,
+    num_subframes=num_subframes,
+    normal_cp=True
 )
-
-# ------------------------------------------------
-# 3. Resource grid
-# ------------------------------------------------
-grid = ResourceGrid(ndlrb=ndlrb, num_subframes=num_subframes, normal_cp=True)
 grid.map_pss(pss_sequence=pss_signal, symbol_index=pss_symbol_idx)
-grid.map_pbch(pbch_symbols=pbch_symbols, pbch_symbol_indices=[pbch_symbol_idx])
+grid.map_pbch(pbch_symbols=pbch_symbols,
+              pbch_symbol_indices=[pbch_symbol_idx])
 
-# ------------------------------------------------
-# 4. OFDM modulacija
-# ------------------------------------------------
-fft_size = 128
+# ================================================================
+# 4. OFDM modulacija (TX)
+# ================================================================
 ofdm = OFDMModulator(resource_grid=grid.grid, new_fft_size=fft_size)
-tx_signal, sample_rate = ofdm.modulate()
+tx_signal, fs = ofdm.modulate()
 tx_signal = tx_signal.astype(np.complex64)
-
-# centriranje OFDM signala
 tx_signal -= np.mean(tx_signal)
 
-# ------------------------------------------------
-# 5. AWGN kanal
-# ------------------------------------------------
+# ================================================================
+# 5. AWGN kanal (CHANNEL)
+# ================================================================
 awgn = AWGNChannel(snr_db=snr_db, seed=42)
 rx_signal = awgn.apply(tx_signal)
-
-# centriranje RX OFDM signala
 rx_signal -= np.mean(rx_signal)
 
 plot_len = min(2000, len(tx_signal))
 
-# ------------------------------------------------
-# 6. Konstelacije
-# ------------------------------------------------
-# PBCH QPSK: spojen TX i RX
+# ================================================================
+# TX: PBCH konstelacija
+# ================================================================
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(pbch_symbols), np.imag(pbch_symbols), s=40, c='blue', label="PBCH TX")
-plt.scatter(np.real(pbch_symbols_awgn), np.imag(pbch_symbols_awgn), s=40, c='red', label="PBCH RX (AWGN)")
-plt.title("PBCH QPSK Konstelacija")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(pbch_symbols.real, pbch_symbols.imag, s=40)
+plt.title("PBCH QPSK konstelacija (TX)")
 plt.grid(True)
 plt.axis("equal")
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "constellation_pbch_combined.png"), dpi=300)
+plt.savefig(os.path.join(TX_DIR, "pbch_constellation_tx.png"), dpi=300)
 plt.close()
 
-# OFDM konstelacija TX
+# ================================================================
+# CHANNEL: PBCH konstelacija + AWGN
+# ================================================================
+noise = rx_signal[:len(pbch_symbols)]
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(tx_signal[:plot_len]), np.imag(tx_signal[:plot_len]), s=5, c='green', label="OFDM TX")
-plt.title("OFDM Konstelacija TX (prije AWGN)")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(noise.real, noise.imag, s=40)
+plt.title("PBCH konstelacija (AWGN kanal)")
 plt.grid(True)
 plt.axis("equal")
-plt.xlim([-15, 15])
-plt.ylim([-15, 15])
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "constellation_ofdm_tx.png"), dpi=300)
+plt.savefig(os.path.join(CH_DIR, "pbch_constellation_awgn.png"), dpi=300)
 plt.close()
 
-# OFDM konstelacija RX
+# ================================================================
+# TX: OFDM konstelacija
+# ================================================================
 plt.figure(figsize=(6, 6))
-plt.scatter(np.real(rx_signal[:plot_len]), np.imag(rx_signal[:plot_len]), s=5, c='orange', label="OFDM RX (poslije AWGN)")
-plt.title("OFDM Konstelacija RX (poslije AWGN)")
-plt.xlabel("I")
-plt.ylabel("Q")
+plt.scatter(tx_signal[:plot_len].real,
+            tx_signal[:plot_len].imag, s=5)
+plt.title("OFDM konstelacija (TX)")
 plt.grid(True)
 plt.axis("equal")
-plt.xlim([-15, 15])
-plt.ylim([-15, 15])
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "constellation_ofdm_rx.png"), dpi=300)
+plt.savefig(os.path.join(TX_DIR, "ofdm_constellation_tx.png"), dpi=300)
 plt.close()
 
-# ------------------------------------------------
-# 7. PBCH faza
-# ------------------------------------------------
-plt.figure(figsize=(10, 4))
-plt.plot(np.angle(pbch_symbols), label="PBCH Faza TX (prije AWGN)")
-plt.title("PBCH Faza prije AWGN")
-plt.xlabel("Simbol")
-plt.ylabel("Faza [rad]")
+# ================================================================
+# RX: OFDM konstelacija
+# ================================================================
+plt.figure(figsize=(6, 6))
+plt.scatter(rx_signal[:plot_len].real,
+            rx_signal[:plot_len].imag, s=5)
+plt.title("OFDM konstelacija (RX, AWGN)")
 plt.grid(True)
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "phase_pbch_before_awgn.png"), dpi=300)
+plt.axis("equal")
+plt.savefig(os.path.join(RX_DIR, "ofdm_constellation_rx.png"), dpi=300)
 plt.close()
 
+# ================================================================
+# RX: OFDM faza
+# ================================================================
 plt.figure(figsize=(10, 4))
-plt.plot(np.angle(pbch_symbols_awgn), label=f"PBCH Faza RX (poslije AWGN, {snr_db} dB)", color='red')
-plt.title("PBCH Faza poslije AWGN")
-plt.xlabel("Simbol")
-plt.ylabel("Faza [rad]")
+plt.plot(np.angle(rx_signal[:plot_len]))
+plt.title("OFDM faza (RX, AWGN)")
 plt.grid(True)
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "phase_pbch_after_awgn.png"), dpi=300)
+plt.savefig(os.path.join(RX_DIR, "ofdm_phase_rx.png"), dpi=300)
 plt.close()
 
-# ------------------------------------------------
-# 8. OFDM faza
-# ------------------------------------------------
+# ================================================================
+# TX / RX: realni dio signala
+# ================================================================
 plt.figure(figsize=(10, 4))
-plt.plot(np.angle(rx_signal[:plot_len]), label=f"OFDM Faza RX (poslije AWGN, {snr_db} dB)", color='orange')
-plt.title("OFDM Faza poslije AWGN")
-plt.xlabel("Uzorak")
-plt.ylabel("Faza [rad]")
-plt.grid(True)
+plt.plot(tx_signal[:plot_len].real, label="TX")
+plt.plot(rx_signal[:plot_len].real, label="RX", alpha=0.7)
+plt.title("OFDM realni dio (TX vs RX)")
 plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "phase_ofdm_rx.png"), dpi=300)
+plt.grid(True)
+plt.savefig(os.path.join(RX_DIR, "ofdm_real_tx_rx.png"), dpi=300)
 plt.close()
 
-# ------------------------------------------------
-# 9. Realni dio OFDM signala
-# ------------------------------------------------
-plt.figure(figsize=(10, 4))
-plt.plot(np.real(tx_signal[:plot_len]), label="OFDM Realni TX (prije AWGN)")
-plt.title("OFDM Realni dio TX")
-plt.xlabel("Uzorak")
-plt.ylabel("Amplituda")
-plt.grid(True)
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "real_ofdm_tx.png"), dpi=300)
-plt.close()
-
-plt.figure(figsize=(10, 4))
-plt.plot(np.real(rx_signal[:plot_len]), label="OFDM Realni RX (poslije AWGN)", color='purple')
-plt.title("OFDM Realni dio RX")
-plt.xlabel("Uzorak")
-plt.ylabel("Amplituda")
-plt.grid(True)
-plt.legend()
-plt.savefig(os.path.join(FIG_DIR, "real_ofdm_rx.png"), dpi=300)
-plt.close()
-
-plt.show()
+print("[OK] AWGN example završen.")
+print("Slike su snimljene u examples/results/{tx,channel,rx}/")
