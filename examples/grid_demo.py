@@ -3,13 +3,14 @@ grid_demo.py
 ============
 
 Demonstracija mapiranja PSS i PBCH simbola u LTE resource grid.
+(TX-only primjer – nema kanala ni prijemnika)
 """
 from __future__ import annotations
 
 import sys
 import os
 
-# dodaj root projekta u PYTHONPATH
+# Dodaj root projekta u PYTHONPATH
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from typing import Iterable, Tuple
@@ -20,15 +21,14 @@ import matplotlib.patches as mpatches
 
 from transmitter.resource_grid import ResourceGrid
 
-
-
 # ================================================================
-# Results folder: examples/results
+# Results folders (TX-only)
 # ================================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(BASE_DIR, "results")
-os.makedirs(RESULTS_DIR, exist_ok=True)
+RESULTS_BASE = os.path.join(BASE_DIR, "results")
+TX_DIR = os.path.join(RESULTS_BASE, "tx")
 
+os.makedirs(TX_DIR, exist_ok=True)
 
 # -----------------------------------------------------------------------------
 # KREIRANJE DEMO GRIDA (PSS + PBCH)
@@ -97,15 +97,21 @@ def plot_results(
     ax1.set_ylabel("Subcarrier indeks (k)")
     ax1.set_title("LTE Resource Grid – magnituda |RE|")
 
-    pss_line = ax1.axvline(pss_symbol_index, color="red", linestyle="--",
-                           linewidth=1.2, label="PSS")
+    pss_line = ax1.axvline(
+        pss_symbol_index, color="red", linestyle="--",
+        linewidth=1.2, label="PSS"
+    )
 
     lmin, lmax = min(pbch_symbol_indices), max(pbch_symbol_indices)
-    pbch_span = ax1.axvspan(lmin - 0.5, lmax + 0.5, alpha=0.15,
-                            color="white", label="PBCH")
+    pbch_span = ax1.axvspan(
+        lmin - 0.5, lmax + 0.5, alpha=0.15,
+        color="white", label="PBCH"
+    )
 
-    dc_line = ax1.axhline(dc_index, color="black", linestyle=":",
-                          linewidth=1.0, label="DC")
+    dc_line = ax1.axhline(
+        dc_index, color="black", linestyle=":",
+        linewidth=1.0, label="DC"
+    )
 
     cbar = fig.colorbar(im, ax=ax1)
     cbar.set_label("|RE|")
@@ -131,10 +137,10 @@ def plot_results(
     fig.tight_layout()
 
     # ------------------------------------------------------------
-    # SAVE FIGURE
+    # SAVE FIGURE (TX)
     # ------------------------------------------------------------
     fig.savefig(
-        os.path.join(RESULTS_DIR, "grid_resource_grid_pss_pbch.png"),
+        os.path.join(TX_DIR, "grid_resource_grid_pss_pbch.png"),
         dpi=300,
         bbox_inches="tight",
     )
@@ -148,7 +154,7 @@ def main() -> None:
 
     rg, pss_sequence, pbch_symbols, pbch_symbol_indices = create_demo_grid()
 
-    print("=== LTE resource grid demo ===")
+    print("=== LTE resource grid demo (TX-only) ===")
     print(f"NDLRB: {rg.ndlrb}")
     print(f"Broj podnosioca: {rg.num_subcarriers}")
     print(f"Ukupno OFDM simbola: {rg.num_symbols_total}")
@@ -157,7 +163,7 @@ def main() -> None:
 
     plot_results(rg, pss_symbol_index=6, pbch_symbol_indices=pbch_symbol_indices)
 
-    print("Slika je snimljena u 'examples/results/grid_resource_grid_pss_pbch.png'.")
+    print("Slika je snimljena u 'examples/results/tx/grid_resource_grid_pss_pbch.png'.")
 
 
 if __name__ == "__main__":
