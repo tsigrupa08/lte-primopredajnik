@@ -1,50 +1,67 @@
+import pytest
 import numpy as np
-from receiver.QPSK_demapiranje import QPSKDemapper  
+from receiver.QPSK_demapiranje import QPSKDemapper
 
-def test_QPSKDemapper():
+# ==============================================================================
+# DEFINICIJA PODATAKA ZA TESTIRANJE
+# ==============================================================================
+# Ovde definišemo sve slučajeve.
+# Svaki red je jedan test: (ime_testa, ulazni_simboli, ocekivani_bitovi)
+
+test_data = [
+    # --- IDEALNE TAČKE ---
+    ("1. Idealno [1+1j]",   [1+1j],   [0, 0]),
+    ("2. Idealno [-1+1j]",  [-1+1j],  [1, 0]),
+    ("3. Idealno [1-1j]",   [1-1j],   [0, 1]),
+    ("4. Idealno [-1-1j]",  [-1-1j],  [1, 1]),
+
+    # --- MALE VARIJACIJE (ŠUM) ---
+    ("5. Sum [0.8+1.2j]",   [0.8+1.2j],   [0, 0]),
+    ("6. Sum [-1.1+0.9j]",  [-1.1+0.9j],  [1, 0]),
+    ("7. Sum [0.7-1.3j]",   [0.7-1.3j],   [0, 1]),
+    ("8. Sum [-0.6-0.8j]",  [-0.6-0.8j],  [1, 1]),
+
+    # --- GRANIČNE VREDNOSTI (ZERO BOUNDARY) ---
+    # Tvoja logika kaze: (val <= 0) -> bit 1. Dakle 0 je bit 1.
+    ("9. Granica I=0 [0+1j]",   [0+1j],   [1, 0]),
+    ("10. Granica Q=0 [1+0j]",  [1+0j],   [0, 1]),
+    ("11. Centar [0+0j]",       [0+0j],   [1, 1]),
+    ("12. Granica I<0 [-0.5+0j]", [-0.5+0j], [1, 1]),
+
+    # --- VEKTORIZACIJA (VIŠE SIMBOLA) ---
+    (
+        "13. Niz od 4 simbola", 
+        [1+1j, -1+1j, 1-1j, -1-1j], 
+        [0,0,  1,0,  0,1,  1,1]
+    ),
+    
+    # --- EKSTREMNE VREDNOSTI ---
+    ("14. Veliki brojevi [100-100j]", [100-100j], [0, 1]),
+    ("15. Mali brojevi [0.001+0.001j]", [0.001+0.001j], [0, 0]),
+]
+
+# ==============================================================================
+# TEST FUNKCIJA
+# ==============================================================================
+@pytest.mark.parametrize("ime_testa, ulaz, ocekivano", test_data)
+def test_QPSK_cases(ime_testa, ulaz, ocekivano):
     """
-    Unit testovi za QPSKDemapper
-    Pokrivaju:
-    - idealne QPSK tačke
-    - simboli sa malim šumom
-    - granične vrijednosti (I=0 ili Q=0)
-    - veći broj simbola odjednom
+    Ova funkcija se automatski pokreće za svaki red u test_data.
     """
+    # 1. Inicijalizacija
     demapper = QPSKDemapper(mode="hard")
+    
+    # Konverzija ulaza u numpy niz (za svaki slučaj)
+    simboli = np.array(ulaz, dtype=np.complex64)
+    ocekivani_bitovi = np.array(ocekivano, dtype=np.uint8)
 
-    # Lista test slučajeva: (simboli, očekivani bitovi)
-    test_cases = [
-        # Idealne tačke
-        (np.array([1 + 1j], dtype=np.complex64), [0, 0]),
-        (np.array([-1 + 1j], dtype=np.complex64), [1, 0]),
-        (np.array([1 - 1j], dtype=np.complex64), [0, 1]),
-        (np.array([-1 - 1j], dtype=np.complex64), [1, 1]),
+    # 2. Izvršenje
+    izlazni_bitovi = demapper.demap(simboli)
 
-        # Male varijacije oko idealnih
-        (np.array([0.8 + 1.2j], dtype=np.complex64), [0, 0]),
-        (np.array([-1.1 + 0.9j], dtype=np.complex64), [1, 0]),
-        (np.array([0.7 - 1.3j], dtype=np.complex64), [0, 1]),
-        (np.array([-0.6 - 0.8j], dtype=np.complex64), [1, 1]),
-
-        # Granične vrijednosti
-        (np.array([0 + 1j], dtype=np.complex64), [1, 0]),    # I=0 → b0=1
-        (np.array([1 + 0j], dtype=np.complex64), [0, 1]),    # Q=0 → b1=1
-        (np.array([0 - 1j], dtype=np.complex64), [1, 1]),    # I=0, Q<0
-        (np.array([-0.5 + 0j], dtype=np.complex64), [1, 1]), # I<0, Q=0
-        (np.array([0 + 0j], dtype=np.complex64), [1, 1]),    # I=0, Q=0
-
-        # Više simbola odjednom
-        (np.array([1+1j, -1+1j, 1-1j, -1-1j], dtype=np.complex64),
-         [0,0, 1,0, 0,1, 1,1])
-    ]
-
-    # Pokretanje testova
-    for i, (symbols, expected) in enumerate(test_cases, 1):
-        bits = demapper.demap(symbols)
-        if np.array_equal(bits, np.array(expected, dtype=np.uint8)):
-            print(f"Test {i}: PASS")
-        else:
-            print(f"Test {i}: FAIL - Dobio {bits.tolist()}, očekivano {expected}")
-
-if __name__ == "__main__":
-    test_QPSKDemapper()
+    # 3. Provera (Assert)
+    # Ako ovo padne, pytest će ispisati tačno koji test je pao
+    np.testing.assert_array_equal(
+        izlazni_bitovi, 
+        ocekivani_bitovi, 
+        err_msg=f"GRESKA u testu '{ime_testa}'"
+    )
