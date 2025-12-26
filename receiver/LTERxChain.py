@@ -2,13 +2,13 @@ import numpy as np
 
 # Import svih modula 
 from receiver.utils import RxUtils
-from rx.pss_sync import PSSSynchronizer
-from rx.ofdm_demodulator import OFDMDemodulator
-from rx.resource_grid_extractor import PBCHExtractor
-from rx.qpsk_demapper import QPSKDemapper
-from rx.pbch_deratematch import DeRateMatcher
-from rx.viterbi_decoder import ViterbiDecoder
-from rx.crc_checker import CRCChecker
+from receiver.pss_sync import PSSSynchronizer
+from receiver.OFDM_demodulator import OFDMDemodulator
+from receiver.resource_grid_extractor import PBCHExtractor
+from receiver.QPSK_demapiranje import QPSKDemapper
+from receiver.de_rate_matching import DeRateMatcher
+from receiver.viterbi_decoder import ViterbiDecoder
+from receiver.crc_checker import CRCChecker
 
 
 class LTERxChain:
@@ -18,8 +18,8 @@ class LTERxChain:
     1. Validacija i normalizacija signala
     2. PSS korelacija → detekcija N_ID_2, timing, CFO
     3. CFO korekcija
-    4. OFDM demodulacija (CP remove + FFT)
-    5. Ekstrakcija PBCH simbola iz grida
+    4. OFDM demodulacija (CP remove + FFT) + selekcija aktivnih podnosača
+    5. Ekstrakcija PBCH simbola iz ACTIVE grida
     6. QPSK demapiranje u bitove
     7. De-rate-matching (akumulacija)
     8. Viterbi dekodiranje
@@ -27,60 +27,37 @@ class LTERxChain:
 
     Rezultat je dict sa svim međukoracima (debug) i finalnim MIB bitovima.
     """
-    """
-Examples
---------
-Kako se poziva i koristi LTERxChain klasa:
-
->>> import numpy as np
->>> from rx.LTERxChain import LTERxChain
->>>
->>> # Dummy signal (random kompleksni uzorci)
->>> rx_waveform = np.random.randn(4096) + 1j*np.random.randn(4096)
->>>
->>> # Inicijalizacija prijemnog lanca
->>> rx_chain = LTERxChain(sample_rate_hz=1.92e6, ndlrb=6, normal_cp=True)
->>>
->>> # Pokretanje prijema
->>> result = rx_chain.process(rx_waveform)
->>>
->>> # Rezultati
->>> print("CRC OK:", result["crc_ok"])
->>> print("Decoded MIB bits:", result["mib_bits"])
->>> print("Debug keys:", result["debug"].keys())
-
-Notes
------
-- `mib_bits` : dekodirani MIB payload bitovi
-- `crc_ok`   : bool flag CRC provjere
-- `debug`    : dict sa svim međurezultatima (PSS metrike, grid, PBCH simboli,
-               demapirani bitovi, deratematched bitovi, dekodirani bitovi itd.)
-"""
-
 
     def __init__(self,
-                 sample_rate_hz=1.92e6,
+                 sample_rate_hz=1.92e6,  # 128 * 15 kHz for NDLRB=6
                  ndlrb=6,
                  normal_cp=True,
                  fft_size=None):
         # Utils za validaciju i RMS normalizaciju
         self.utils = RxUtils()
 
+        # Konfiguracija
+        self.sample_rate_hz = sample_rate_hz
+        self.ndlrb = int(ndlrb)
+        self.normal_cp = bool(normal_cp)
+
         # PSS sync
         self.pss_sync = PSSSynchronizer(sample_rate_hz=sample_rate_hz)
 
         # OFDM demodulator
-        self.ofdm_demod = OFDMDemodulator(ndlrb=ndlrb,
-                                          normal_cp=normal_cp,
+        self.ofdm_demod = OFDMDemodulator(ndlrb=self.ndlrb,
+                                          normal_cp=self.normal_cp,
                                           new_fft_size=fft_size)
 
-        # PBCH extractor
-        self.pbch_ext = PBCHExtractor()
+        # PBCH extractor (inicijalizovan sa istom numerologijom)
+        self.pbch_ext = PBCHExtractor(ndlrb=self.ndlrb, normal_cp=self.normal_cp)
 
         # QPSK demapper
         self.demapper = QPSKDemapper(mode="hard")
 
         # De-rate matcher (parametri zavise od TX konfiguracije)
+        # TX mapira 960 QPSK simbola → 1920 bitova kroz 4 subfrejma.
+        # Ovdje pretpostavljamo da RX skuplja kompletan blok (E_rx=1920).
         self.deratematcher = DeRateMatcher(E_rx=1920, N_coded=120)
 
         # Viterbi decoder (isti generatori kao u TX)
@@ -122,8 +99,7 @@ Notes
         # 2) PSS korelacija
         corr_metrics = self.pss_sync.correlate(rx_waveform)
         tau_hat, detected_nid = self.pss_sync.estimate_timing(corr_metrics)
-        cfo_hat = self.pss_sync.estimate_cfo(rx_waveform, tau_hat,
-                                             detected_nid)
+        cfo_hat = self.pss_sync.estimate_cfo(rx_waveform, tau_hat, detected_nid)
         debug["pss_corr_metrics"] = corr_metrics
         debug["tau_hat"] = tau_hat
         debug["detected_nid"] = detected_nid
@@ -134,11 +110,22 @@ Notes
         debug["rx_cfo_corrected"] = rx_corr
 
         # 4) OFDM demodulacija
-        grid = self.ofdm_demod.demodulate(rx_corr)
-        debug["grid"] = grid
+        # Vrati i full FFT grid za debug, ali koristi ACTIVE grid dalje (72 nosioca za NDLRB=6).
+        full_grid = self.ofdm_demod.demodulate(rx_corr, return_active_only=False)
+        active_grid = self.ofdm_demod.demodulate(rx_corr, return_active_only=True)
 
-        # 5) PBCH ekstrakcija
-        pbch_symbols_rx = self.pbch_ext.extract(grid)
+        debug["grid_full_fft"] = full_grid
+        debug["grid_active"] = active_grid
+
+        # Brza validacija: očekujemo ndlrb * 12 aktivnih podnosača
+        expected_active = self.ndlrb * 12
+        assert active_grid.shape[1] == expected_active, (
+            f"Active grid width mismatch: got {active_grid.shape[1]}, "
+            f"expected {expected_active} for NDLRB={self.ndlrb}"
+        )
+
+        # 5) PBCH ekstrakcija (ISKLJUČIVO iz ACTIVE grida)
+        pbch_symbols_rx = self.pbch_ext.extract(active_grid)
         debug["pbch_symbols_rx"] = pbch_symbols_rx
 
         # 6) QPSK demapiranje
@@ -146,8 +133,7 @@ Notes
         debug["demapped_bits"] = demapped_bits
 
         # 7) De-rate-matching
-        deratematched_bits = self.deratematcher.accumulate(demapped_bits,
-                                                           soft=False)
+        deratematched_bits = self.deratematcher.accumulate(demapped_bits, soft=False)
         debug["deratematched_bits"] = deratematched_bits
 
         # 8) Viterbi dekodiranje
