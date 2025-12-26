@@ -1,5 +1,3 @@
-# rx/viterbi_decoder.py
-
 import numpy as np
 
 
@@ -14,13 +12,13 @@ class ViterbiDecoder:
     generators : list[int]
         Generator polinomi u oktalnom obliku (npr. [0o133, 0o171, 0o164]).
     rate : float
-        Kodna stopa (informativno, npr. 1/3).
+        Kodna stopa (npr. 1/3).
 
     Primjer
     -------
     >>> import numpy as np
     >>> from transmitter.convolutional import ConvolutionalEncoder
-    >>> from rx.viterbi_decoder import ViterbiDecoder
+    >>> from receiver.viterbi_decoder import ViterbiDecoder
     >>>
     >>> u = np.random.randint(0, 2, 20, dtype=np.uint8)
     >>> enc = ConvolutionalEncoder(
@@ -47,7 +45,7 @@ class ViterbiDecoder:
 
         self.num_states = 2 ** (self.K - 1)
 
-        # Pretvaranje generatora u binarne tapove (isto kao u encoderu)
+        # Pretvaranje generatora u binarne tapove
         self.taps = [
             np.array([(g >> (self.K - 1 - i)) & 1 for i in range(self.K)], dtype=int)
             for g in self.generators
@@ -60,18 +58,14 @@ class ViterbiDecoder:
     def _build_trellis(self):
         """Gradi trellis: (state, input_bit) -> next_state, output_bits"""
         for state in range(self.num_states):
-            # stanje -> registar (K-1 bita)
             reg = np.array(
                 [(state >> i) & 1 for i in range(self.K - 2, -1, -1)],
                 dtype=int
             )
-
             for bit in (0, 1):
-                v = np.concatenate(([bit], reg))  # [input_bit, register]
-
+                v = np.concatenate(([bit], reg))
                 outputs = [(np.sum(v * t) % 2) for t in self.taps]
                 next_state = ((bit << (self.K - 2)) | (state >> 1))
-
                 self.next_state[(state, bit)] = next_state
                 self.output_bits[(state, bit)] = np.array(outputs, dtype=int)
 
@@ -82,7 +76,7 @@ class ViterbiDecoder:
         Parametar
         ---------
         received_bits : ndarray
-            Niz primljenih bitova (0/1), dužine = n_outputs * N.
+            Niz primljenih bitova (0/1).
 
         Povrat
         ------
@@ -90,7 +84,16 @@ class ViterbiDecoder:
             Dekodirani ulazni bitovi.
         """
         rcv = np.asarray(received_bits, dtype=int).reshape(-1)
-        n_out = len(self.generators)
+
+        # broj izlaznih bitova po ulaznom bitu
+        n_out = int(1 / self.rate)
+
+        # validacija dužine
+        if rcv.size % n_out != 0:
+            raise ValueError(
+                f"Input length {rcv.size} not divisible by n_out={n_out}"
+            )
+
         T = rcv.size // n_out
 
         path = np.full((T + 1, self.num_states), np.inf)
@@ -124,7 +127,7 @@ class ViterbiDecoder:
         return np.array(decoded[::-1], dtype=int)
 
 
-# Brzi self-test (opcionalno)
+# Brzi self-test
 if __name__ == "__main__":
     from transmitter.convolutional import ConvolutionalEncoder
 
