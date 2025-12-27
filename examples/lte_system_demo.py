@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 LTE end-to-end demonstracija
 TX → Channel → RX
@@ -22,7 +24,6 @@ Analizirani su realni (AWGN + CFO) i idealni (bez šuma i CFO) uslovi rada siste
 """
 
 
-from __future__ import annotations
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -170,7 +171,7 @@ def run_case(case_name: str, snr_db: float, cfo_hz: float):
         fig,
         "RX traži početak LTE okvira.\n"
         "Najveći pik → izabrani N_ID_2.\n"
-        f"τ̂ = {dbg['tau_hat']}"
+        
     )
 
     plt.tight_layout(rect=[0, 0, 0.68, 1])
