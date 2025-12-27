@@ -85,21 +85,35 @@ class PSSSynchronizer:
         Komentari
         ---------
         - Korelacija u kompleksnom domenu zahtijeva konjugovanu referencu.
-        - Vektorizirano za sve tri PSS sekvence.
+        - Normalizacija korelacije uklanja uticaj energije signala.
+        - Time se obezbjeđuje da maksimalni pik odgovara
+          stvarnoj sličnosti PSS sekvence, a ne njenoj energiji.
         """
-        rx_waveform = np.asarray(rx_waveform)
+        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
+
         pss_len = len(PSSGenerator.generate(self.n_id_2_candidates[0]))
         corr_len = len(rx_waveform) - pss_len + 1
 
         corr_metrics = np.zeros(
             (len(self.n_id_2_candidates), corr_len),
-            dtype=np.complex64
+            dtype=np.complex128
         )
 
         for i, nid in enumerate(self.n_id_2_candidates):
-            pss = PSSGenerator.generate(nid)
-            corr = np.correlate(rx_waveform, np.conj(pss), mode="valid")
-            corr_metrics[i, :] = corr
+            pss = PSSGenerator.generate(nid).astype(np.complex128)
+            pss_energy = np.linalg.norm(pss)
+
+            for k in range(corr_len):
+                segment = rx_waveform[k:k + pss_len]
+                seg_energy = np.linalg.norm(segment)
+
+                if seg_energy == 0.0:
+                    corr_metrics[i, k] = 0.0
+                else:
+                    corr_metrics[i, k] = (
+                        np.vdot(pss, segment)
+                        / (pss_energy * seg_energy)
+                    )
 
         return corr_metrics
 
@@ -122,7 +136,8 @@ class PSSSynchronizer:
 
         Komentari
         ---------
-        - Maksimalna magnitude korelacije pokazuje najvjerovatniji PSS signal.
+        - Maksimalna magnitude korelacije pokazuje
+          najvjerovatniji PSS signal.
         """
         max_idx = np.unravel_index(
             np.abs(corr_metrics).argmax(),
@@ -154,10 +169,14 @@ class PSSSynchronizer:
 
         Komentari
         ---------
-        - Procjena se bazira na prosječnoj faznoj rotaciji između uzastopnih uzoraka PSS-a.
+        - Procjena se bazira na prosječnoj faznoj rotaciji
+          između uzastopnih uzoraka PSS-a.
         """
-        pss = PSSGenerator.generate(n_id_2)
+        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
+
+        pss = PSSGenerator.generate(n_id_2).astype(np.complex128)
         pss_len = len(pss)
+
         rx_pss = rx_waveform[tau_hat:tau_hat + pss_len]
 
         phase_diff = np.angle(rx_pss[1:] * np.conj(rx_pss[:-1]))
@@ -167,7 +186,8 @@ class PSSSynchronizer:
 
     def apply_cfo_correction(self, rx_waveform, cfo_hat):
         """
-        Primjenjuje korekciju frekvencijskog ofseta (CFO) na primljeni signal.
+        Primjenjuje korekciju frekvencijskog ofseta (CFO)
+        na primljeni signal.
 
         Parametri
         ----------
@@ -183,11 +203,14 @@ class PSSSynchronizer:
 
         Komentari
         ---------
-        - Negativni ofset se primjenjuje da bi se poništio procijenjeni CFO.
+        - Negativni ofset se primjenjuje
+          da bi se poništio procijenjeni CFO.
         """
+        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
+
         fo = FrequencyOffset(
             freq_offset_hz=-cfo_hat,
             sample_rate_hz=self.sample_rate_hz
         )
-        rx_corrected = fo.apply(rx_waveform)
-        return rx_corrected
+
+        return fo.apply(rx_waveform)
