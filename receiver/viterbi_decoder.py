@@ -134,3 +134,4 @@ if __name__ == "__main__":
     print("Round-trip OK:", np.array_equal(u, u_hat))
 
 
+
