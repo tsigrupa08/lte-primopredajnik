@@ -1,5 +1,3 @@
-# rx/viterbi_decoder.py
-
 import numpy as np
 
 
@@ -14,30 +12,7 @@ class ViterbiDecoder:
     generators : list[int]
         Generator polinomi u oktalnom obliku (npr. [0o133, 0o171, 0o164]).
     rate : float
-        Kodna stopa (informativno, npr. 1/3).
-
-    Primjer
-    -------
-    >>> import numpy as np
-    >>> from transmitter.convolutional import ConvolutionalEncoder
-    >>> from rx.viterbi_decoder import ViterbiDecoder
-    >>>
-    >>> u = np.random.randint(0, 2, 20, dtype=np.uint8)
-    >>> enc = ConvolutionalEncoder(
-    ...     constraint_len=7,
-    ...     generators_octal=(0o133, 0o171, 0o164),
-    ...     tail_biting=False
-    ... )
-    >>> coded = enc.encode(u)
-    >>>
-    >>> dec = ViterbiDecoder(
-    ...     constraint_len=7,
-    ...     generators=[0o133, 0o171, 0o164],
-    ...     rate=1/3
-    ... )
-    >>> u_hat = dec.decode(coded)
-    >>> np.array_equal(u, u_hat)
-    True
+        Kodna stopa (npr. 1/3).
     """
 
     def __init__(self, constraint_len, generators, rate=1/3):
@@ -45,9 +20,10 @@ class ViterbiDecoder:
         self.generators = [int(g) for g in generators]
         self.rate = rate
 
+        # broj stanja trellisa
         self.num_states = 2 ** (self.K - 1)
 
-        # Pretvaranje generatora u binarne tapove (isto kao u encoderu)
+        # Pretvaranje generatora u binarne tapove
         self.taps = [
             np.array([(g >> (self.K - 1 - i)) & 1 for i in range(self.K)], dtype=int)
             for g in self.generators
@@ -60,18 +36,14 @@ class ViterbiDecoder:
     def _build_trellis(self):
         """Gradi trellis: (state, input_bit) -> next_state, output_bits"""
         for state in range(self.num_states):
-            # stanje -> registar (K-1 bita)
             reg = np.array(
                 [(state >> i) & 1 for i in range(self.K - 2, -1, -1)],
                 dtype=int
             )
-
             for bit in (0, 1):
-                v = np.concatenate(([bit], reg))  # [input_bit, register]
-
+                v = np.concatenate(([bit], reg))
                 outputs = [(np.sum(v * t) % 2) for t in self.taps]
                 next_state = ((bit << (self.K - 2)) | (state >> 1))
-
                 self.next_state[(state, bit)] = next_state
                 self.output_bits[(state, bit)] = np.array(outputs, dtype=int)
 
@@ -82,7 +54,7 @@ class ViterbiDecoder:
         Parametar
         ---------
         received_bits : ndarray
-            Niz primljenih bitova (0/1), dužine = n_outputs * N.
+            Niz primljenih bitova (0/1).
 
         Povrat
         ------
@@ -90,8 +62,24 @@ class ViterbiDecoder:
             Dekodirani ulazni bitovi.
         """
         rcv = np.asarray(received_bits, dtype=int).reshape(-1)
-        n_out = len(self.generators)
-        T = rcv.size // n_out
+
+        # broj izlaznih bitova po ulaznom bitu iz rate-a
+        n_out_rate = int(round(1 / self.rate))
+        n_out_gens = len(self.generators)
+
+        # Ako rate ne odgovara broju generatora → greška
+        if n_out_rate != n_out_gens:
+            raise ValueError(
+                f"Rate {self.rate} inconsistent with number of generators {n_out_gens}"
+            )
+
+        # Ako dužina nije višekratnik n_out → greška
+        if rcv.size % n_out_rate != 0:
+            raise ValueError(
+                f"Input length {rcv.size} not divisible by n_out={n_out_rate}"
+            )
+
+        T = rcv.size // n_out_rate
 
         path = np.full((T + 1, self.num_states), np.inf)
         path[0, 0] = 0  # početno stanje = 0
@@ -101,7 +89,7 @@ class ViterbiDecoder:
 
         # Forward pass
         for t in range(T):
-            r = rcv[t * n_out:(t + 1) * n_out]
+            r = rcv[t * n_out_rate:(t + 1) * n_out_rate]
             for s in range(self.num_states):
                 if not np.isfinite(path[t, s]):
                     continue
@@ -115,16 +103,16 @@ class ViterbiDecoder:
                         bit_dec[t, ns] = b
 
         # Traceback
-        s = np.argmin(path[T])
+        s = int(np.argmin(path[T]))
         decoded = []
         for t in range(T - 1, -1, -1):
             decoded.append(bit_dec[t, s])
             s = prev[t, s]
 
-        return np.array(decoded[::-1], dtype=int)
+        return np.array(decoded[::-1], dtype=np.uint8)
 
 
-# Brzi self-test (opcionalno)
+# Brzi self-test
 if __name__ == "__main__":
     from transmitter.convolutional import ConvolutionalEncoder
 
@@ -144,3 +132,5 @@ if __name__ == "__main__":
     u_hat = dec.decode(coded)
 
     print("Round-trip OK:", np.array_equal(u, u_hat))
+
+
