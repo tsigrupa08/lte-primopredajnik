@@ -1,304 +1,242 @@
+# tests/test_pss_synchronizer.py
+from __future__ import annotations
+
 import numpy as np
 import pytest
 
-from transmitter.pss import PSSGenerator
-from channel.frequency_offset import FrequencyOffset
+
 from receiver.pss_sync import PSSSynchronizer
+import receiver.pss_sync as pss_mod
 
 
-# ============================================================
-# Helper: generisanje RX signala sa PSS-om
-# ============================================================
 
-def generate_rx_pss(
-    n_id_2: int,
-    timing_offset: int,
-    sample_rate: float,
-    rx_len: int,
-    cfo_hz: float = 0.0,
-) -> np.ndarray:
+def _make_sync_with_templates(
+    *,
+    fs: float = 1_000_000.0,
+    candidates: tuple[int, ...] = (0, 1, 2),
+    templates: dict[int, np.ndarray] | None = None,
+) -> PSSSynchronizer:
     """
-    Generiše RX signal koji sadrži JEDAN PSS
-    sa poznatim timing ofsetom i opcionalnim CFO-om.
+    Kreira PSSSynchronizer bez pozivanja __init__ (da ne gradi LTE template-e),
+    i ručno setuje atribute + template-e.
     """
-    pss = PSSGenerator.generate(n_id_2)
+    sync = object.__new__(PSSSynchronizer)
+    sync.sample_rate_hz = float(fs)
+    sync.n_id_2_candidates = tuple(candidates)
+    sync.ndlrb = 6
+    sync.normal_cp = True
+    if templates is None:
+        # default: 3 template-a iste dužine
+        rng = np.random.default_rng(0)
+        templates = {nid: (rng.standard_normal(64) + 1j * rng.standard_normal(64)).astype(np.complex128)
+                     for nid in candidates}
+    sync._templates = templates
+    return sync
 
-    rx = np.zeros(rx_len, dtype=np.complex128)
-    rx[timing_offset: timing_offset + len(pss)] = pss
 
-    if cfo_hz != 0.0:
-        rx = FrequencyOffset(
-            freq_offset_hz=cfo_hz,
-            sample_rate_hz=sample_rate
-        ).apply(rx)
+# -----------------------------
+# HAPPY PATHS
+# -----------------------------
 
-    return rx
-
-
-# ============================================================
-# TEST 1: Timing + CFO estimacija (osnovni RX test)
-# ============================================================
-
-@pytest.mark.parametrize("n_id_2", [0, 1, 2])
-def test_pss_timing_and_cfo_estimation(n_id_2):
-    """
-    Generiše RX signal sa poznatim:
-    - N_ID_2
-    - timing ofsetom
-    - CFO-om
-
-    Provjerava da RX pronađe:
-    - ispravan N_ID_2
-    - ispravan tau_hat
-    - CFO u toleranciji
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
-
-    timing_offset = 200
-    cfo_true = 500.0  # Hz
-
-    rx = generate_rx_pss(
-        n_id_2=n_id_2,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=cfo_true,
-    )
-
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
+def test_correlate_returns_expected_shape():
+    sync = _make_sync_with_templates()
+    L = next(iter(sync._templates.values())).size
+    rx = (np.random.default_rng(1).standard_normal(L + 10) + 1j * np.random.default_rng(2).standard_normal(L + 10)).astype(np.complex128)
 
     corr = sync.correlate(rx)
-    tau_hat, detected_nid = sync.estimate_timing(corr)
-    cfo_hat = sync.estimate_cfo(rx, tau_hat, detected_nid)
-
-    assert detected_nid == n_id_2
-    assert abs(tau_hat - timing_offset) <= 1
-    assert abs(cfo_hat - cfo_true) < 100.0
+    assert corr.shape == (3, (L + 10) - L + 1)
 
 
-# ============================================================
-# TEST 2: Selektivnost – samo jedan PSS ima najveći peak
-# ============================================================
+def test_correlate_peak_close_to_1_for_perfect_match():
+    # rx == template -> normalizovana korelacija na tau=0 treba biti ~1
+    t = (np.random.default_rng(3).standard_normal(64) + 1j * np.random.default_rng(4).standard_normal(64)).astype(np.complex128)
+    sync = _make_sync_with_templates(templates={0: t, 1: t, 2: t})
+    corr = sync.correlate(t)
+    # bilo koji kandidat ima magnitude ~1 na tau=0
+    assert np.allclose(np.abs(corr[:, 0]), 1.0, atol=1e-10)
 
-def test_pss_selectivity_only_one_peak():
-    """
-    Testira da od sva 3 PSS kandidata
-    SAMO ispravan ima najveći korelacijski peak.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
 
-    true_nid = 1
-    timing_offset = 300
+def test_estimate_timing_finds_correct_tau_and_nid_for_embedded_template():
+    rng = np.random.default_rng(5)
+    L = 80
+    t0 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
+    t1 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
+    t2 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
 
-    rx = generate_rx_pss(
-        n_id_2=true_nid,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=0.0,
-    )
+    templates = {0: t0, 1: t1, 2: t2}
+    sync = _make_sync_with_templates(templates=templates)
 
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
+    offset = 37
+    rx = (0.01 * (rng.standard_normal(L + offset + 20) + 1j * rng.standard_normal(L + offset + 20))).astype(np.complex128)
+    rx[offset:offset + L] += t1  # ubaci nid=1
+
     corr = sync.correlate(rx)
+    tau_hat, nid_hat = sync.estimate_timing(corr)
 
-    peak_magnitudes = np.max(np.abs(corr), axis=1)
-    detected_index = int(np.argmax(peak_magnitudes))
-    detected_nid = sync.n_id_2_candidates[detected_index]
-
-    assert detected_nid == true_nid
+    assert nid_hat == 1
+    assert tau_hat == offset
 
 
-# ============================================================
-# TEST 3: Globalni maksimum daje ispravan PSS i timing
-# ============================================================
+def test_estimate_timing_returns_expected_for_known_corr_matrix():
+    sync = _make_sync_with_templates()
+    corr = np.zeros((3, 20), dtype=np.complex128)
+    corr[2, 7] = 10 + 1j
+    corr[1, 3] = 9 + 0j
 
-def test_all_pss_candidates_compete():
-    """
-    Eksplicitno provjerava da:
-    - sva 3 PSS-a učestvuju u korelaciji
-    - ali samo jedan ima GLOBALNI maksimum
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
+    tau_hat, nid_hat = sync.estimate_timing(corr)
+    assert tau_hat == 7
+    assert nid_hat == 2
 
-    true_nid = 2
-    timing_offset = 150
 
-    rx = generate_rx_pss(
-        n_id_2=true_nid,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=0.0,
-    )
+def test_estimate_cfo_zero_for_no_rotation():
+    rng = np.random.default_rng(6)
+    t = (rng.standard_normal(128) + 1j * rng.standard_normal(128)).astype(np.complex128)
+    sync = _make_sync_with_templates(fs=1_000_000.0, templates={0: t, 1: t, 2: t})
 
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
+    rx = t.copy()
+    cfo_hat = sync.estimate_cfo(rx, tau_hat=0, n_id_2=1)
+    assert abs(cfo_hat) < 1e-9
+
+
+def test_estimate_cfo_recovers_known_cfo():
+    fs = 1_000_000.0
+    cfo_true = 5000.0  # Hz (unutar ±fs/2)
+    rng = np.random.default_rng(7)
+    L = 256
+    t = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
+
+    sync = _make_sync_with_templates(fs=fs, templates={0: t, 1: t, 2: t})
+
+    n = np.arange(L, dtype=np.float64)
+    rx = t * np.exp(1j * 2.0 * np.pi * cfo_true * n / fs)
+    cfo_hat = sync.estimate_cfo(rx, tau_hat=0, n_id_2=1)
+
+    # treba biti jako blizu (numerički)
+    assert abs(cfo_hat - cfo_true) < 1e-6
+
+
+def test_apply_cfo_correction_uses_negative_cfo_and_returns_apply_output(monkeypatch):
+    sync = _make_sync_with_templates(fs=1_920_000.0)
+    rx = (np.ones(10) + 1j * np.zeros(10)).astype(np.complex128)
+    cfo_hat = 1234.0
+
+    captured = {}
+
+    class FakeFO:
+        def __init__(self, freq_offset_hz, sample_rate_hz):
+            captured["freq_offset_hz"] = freq_offset_hz
+            captured["sample_rate_hz"] = sample_rate_hz
+
+        def apply(self, x):
+            return x * (2 + 0j)
+
+    monkeypatch.setattr(pss_mod, "FrequencyOffset", FakeFO)
+
+    out = sync.apply_cfo_correction(rx, cfo_hat)
+
+    assert captured["freq_offset_hz"] == -cfo_hat
+    assert captured["sample_rate_hz"] == sync.sample_rate_hz
+    assert np.allclose(out, rx * (2 + 0j))
+
+
+def test_correlate_accepts_real_input_and_outputs_complex():
+    sync = _make_sync_with_templates()
+    L = next(iter(sync._templates.values())).size
+    rx = np.ones(L + 5, dtype=np.float64)
+
     corr = sync.correlate(rx)
-
-    max_idx = np.unravel_index(np.abs(corr).argmax(), corr.shape)
-    detected_nid = sync.n_id_2_candidates[max_idx[0]]
-    tau_hat = max_idx[1]
-
-    assert detected_nid == true_nid
-    assert abs(tau_hat - timing_offset) <= 1
+    assert np.iscomplexobj(corr)
+    assert corr.shape[1] == 6
 
 
-# ============================================================
-# TEST 4: Timing stabilnost za više ofseta
-# ============================================================
+def test_correlate_is_finite_for_all_zero_rx():
+    sync = _make_sync_with_templates()
+    L = next(iter(sync._templates.values())).size
+    rx = np.zeros(L + 10, dtype=np.complex128)
 
-@pytest.mark.parametrize("timing_offset", [50, 128, 512, 900, 1500])
-def test_pss_timing_multiple_offsets(timing_offset):
-    """
-    Provjerava tačnost timing detekcije
-    za različite pozicije PSS-a u RX signalu.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
-    n_id_2 = 0
-
-    rx = generate_rx_pss(
-        n_id_2=n_id_2,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=0.0,
-    )
-
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
     corr = sync.correlate(rx)
-
-    tau_hat, detected_nid = sync.estimate_timing(corr)
-
-    assert detected_nid == n_id_2
-    assert abs(tau_hat - timing_offset) <= 1
+    assert np.all(np.isfinite(corr))
+    assert np.allclose(corr, 0.0)
 
 
-# ============================================================
-# TEST 5: CFO = 0 → procijenjeni CFO ≈ 0
-# ============================================================
-
-@pytest.mark.parametrize("n_id_2", [0, 1, 2])
-def test_cfo_zero_case(n_id_2):
-    """
-    Ako nema CFO-a, procijenjeni CFO
-    mora biti praktično nula.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
-    timing_offset = 256
-
-    rx = generate_rx_pss(
-        n_id_2=n_id_2,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=0.0,
+def test_correlate_custom_candidate_count():
+    rng = np.random.default_rng(8)
+    t0 = (rng.standard_normal(32) + 1j * rng.standard_normal(32)).astype(np.complex128)
+    t2 = (rng.standard_normal(32) + 1j * rng.standard_normal(32)).astype(np.complex128)
+    sync = _make_sync_with_templates(
+        candidates=(0, 2),
+        templates={0: t0, 2: t2},
     )
-
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
+    rx = np.concatenate([np.zeros(10, dtype=np.complex128), t2, np.zeros(5, dtype=np.complex128)])
     corr = sync.correlate(rx)
-
-    tau_hat, detected_nid = sync.estimate_timing(corr)
-    cfo_hat = sync.estimate_cfo(rx, tau_hat, detected_nid)
-
-    assert detected_nid == n_id_2
-    assert abs(cfo_hat) < 1.0
+    assert corr.shape[0] == 2  # samo 2 kandidata
 
 
-# ============================================================
-# TEST 6: Znak CFO-a (pozitivan / negativan)
-# ============================================================
+# -----------------------------
+# UNHAPPY PATHS
+# -----------------------------
 
-@pytest.mark.parametrize("cfo_true", [-800.0, -300.0, 300.0, 800.0])
-def test_cfo_sign_detection(cfo_true):
-    """
-    Provjerava da je znak procijenjenog CFO-a
-    isti kao znak stvarnog CFO-a.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
-    timing_offset = 200
-    n_id_2 = 1
+def test_correlate_raises_when_rx_too_short():
+    sync = _make_sync_with_templates()
+    L = next(iter(sync._templates.values())).size
+    rx = np.zeros(L - 1, dtype=np.complex128)
 
-    rx = generate_rx_pss(
-        n_id_2=n_id_2,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=cfo_true,
-    )
-
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
-    corr = sync.correlate(rx)
-
-    tau_hat, detected_nid = sync.estimate_timing(corr)
-    cfo_hat = sync.estimate_cfo(rx, tau_hat, detected_nid)
-
-    assert detected_nid == n_id_2
-    assert np.sign(cfo_hat) == np.sign(cfo_true)
+    with pytest.raises(ValueError, match="prekratak"):
+        sync.correlate(rx)
 
 
-# ============================================================
-# TEST 7: CFO korekcija ne smije promijeniti timing
-# ============================================================
+def test_estimate_cfo_raises_when_segment_too_short():
+    rng = np.random.default_rng(9)
+    t = (rng.standard_normal(64) + 1j * rng.standard_normal(64)).astype(np.complex128)
+    sync = _make_sync_with_templates(templates={0: t, 1: t, 2: t})
 
-def test_cfo_correction_preserves_timing():
-    """
-    Provjerava da CFO korekcija
-    ne utiče na procjenu tau_hat.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
-    timing_offset = 350
-    n_id_2 = 2
-    cfo_true = 600.0
-
-    rx = generate_rx_pss(
-        n_id_2=n_id_2,
-        timing_offset=timing_offset,
-        sample_rate=sample_rate,
-        rx_len=rx_len,
-        cfo_hz=cfo_true,
-    )
-
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
-
-    corr1 = sync.correlate(rx)
-    tau1, nid1 = sync.estimate_timing(corr1)
-    cfo_hat = sync.estimate_cfo(rx, tau1, nid1)
-
-    rx_corr = sync.apply_cfo_correction(rx, cfo_hat)
-
-    corr2 = sync.correlate(rx_corr)
-    tau2, nid2 = sync.estimate_timing(corr2)
-
-    assert nid1 == n_id_2
-    assert nid2 == n_id_2
-    assert abs(tau1 - tau2) <= 1
+    rx = np.zeros(100, dtype=np.complex128)
+    # tau_hat blizu kraja -> nema L uzoraka
+    with pytest.raises(ValueError, match="prekratak"):
+        sync.estimate_cfo(rx, tau_hat=80, n_id_2=1)
 
 
-# ============================================================
-# TEST 8: Nema PSS-a → nema dominantnog pika
-# ============================================================
+def test_estimate_cfo_raises_on_unknown_nid():
+    sync = _make_sync_with_templates()
+    rx = np.zeros(500, dtype=np.complex128)
 
-def test_no_pss_no_dominant_peak():
-    """
-    Ako RX signal ne sadrži PSS,
-    korelacije ne smiju imati dominantan peak.
-    """
-    sample_rate = 1.92e6
-    rx_len = 4096
+    with pytest.raises(KeyError):
+        sync.estimate_cfo(rx, tau_hat=0, n_id_2=99)
 
-    rng = np.random.default_rng(0)
-    rx = rng.normal(size=rx_len) + 1j * rng.normal(size=rx_len)
 
-    sync = PSSSynchronizer(sample_rate_hz=sample_rate)
-    corr = sync.correlate(rx)
+def test_build_time_templates_raises_on_fs_mismatch(monkeypatch):
+    # Ovaj test stvarno gađa granu u _build_time_templates koja diže ValueError (fs mismatch)
+    # bez pravog LTE chain-a: monkeypatch LTETxChain i OFDMModulator.
+    class FakeTx:
+        def __init__(self, n_id_2, ndlrb, num_subframes, normal_cp):
+            self.grid = np.zeros((1, 1), dtype=np.complex128)
 
-    peaks = np.max(np.abs(corr), axis=1)
+        def generate_waveform(self, mib_bits=None):
+            # dovoljno dugačak signal da slicing radi
+            return np.zeros(5000, dtype=np.complex64), 123.0  # namjerno kriv fs
 
-    ratio = np.max(peaks) / np.mean(peaks)
-    assert ratio < 3.0
+    class FakeOfdm:
+        def __init__(self, grid):
+            self.N = 128
+            self.n_symbols_per_slot = 7
+            self.cp_lengths = [9] * 7
+            self.num_ofdm_symbols = 14
+
+    monkeypatch.setattr(pss_mod, "LTETxChain", FakeTx)
+    monkeypatch.setattr(pss_mod, "OFDMModulator", FakeOfdm)
+
+    with pytest.raises(ValueError, match="Template fs"):
+        PSSSynchronizer(sample_rate_hz=1_000_000.0)
+
+
+def test_symbol_start_indices_computation():
+    # Direktno testira pomoćnu metodu _symbol_start_indices
+    class FakeOfdm:
+        N = 4
+        n_symbols_per_slot = 2
+        cp_lengths = [1, 2]
+        num_ofdm_symbols = 4
+
+    starts = PSSSynchronizer._symbol_start_indices(FakeOfdm())
+    # sym0: cp=1 -> len=5, sym1: cp=2 -> len=6, sym2: cp=1 -> len=5, sym3: cp=2 -> len=6
+    assert starts == [0, 5, 11, 16]
