@@ -1,216 +1,130 @@
 import numpy as np
-from transmitter.pss import PSSGenerator
+
+from transmitter.LTETxChain import LTETxChain
+from transmitter.ofdm import OFDMModulator
 from channel.frequency_offset import FrequencyOffset
 
 
 class PSSSynchronizer:
     """
-    PSSSynchronizer vrši obradu LTE Primary Synchronization Signal (PSS)
-    u prijemniku.
-    Modul obavlja:
-    - korelaciju primljenog signala sa sve tri moguće PSS sekvence (N_ID_2 = 0, 1, 2)
-    - detekciju ispravnog N_ID_2 indeksa
-    - procjenu vremenskog pomaka (timing)
-    - procjenu frekvencijskog ofseta (CFO)
-    - korekciju CFO-a nad primljenim signalom
-
-    Primjeri korištenja
-    ------------------
-    >>> import numpy as np
-    >>> from rx.pss_sync import PSSSynchronizer
-    >>>
-    >>> # Simulacija primljenog kompleksnog signala
-    >>> rx_waveform = np.random.randn(1024) + 1j * np.random.randn(1024)
-    >>> # Kreiranje PSSSynchronizer objekta
-    >>> pss_sync = PSSSynchronizer(sample_rate_hz=1e6)
-    >>>
-    >>> # Korelacija sa svim PSS kandidatima
-    >>> corr_metrics = pss_sync.correlate(rx_waveform)
-    >>> # Prikaz magnitude korelacije za sve 3 PSS sekvence
-    >>> import matplotlib.pyplot as plt
-    >>> for i, nid in enumerate(pss_sync.n_id_2_candidates):
-    ...     plt.plot(np.abs(corr_metrics[i]), label=f"N_ID_2={nid}")
-    >>> plt.xlabel("Uzorak")
-    >>> plt.ylabel("Magnitude korelacije")
-    >>> plt.legend()
-    >>> plt.show()
-    >>>
-    >>> # Procjena vremenskog pomaka i detekcija N_ID_2
-    >>> tau_hat, detected_nid = pss_sync.estimate_timing(corr_metrics)
-    >>> print("Procijenjeni tau:", tau_hat)
-    >>> print("Detektovani N_ID_2:", detected_nid)
-    >>>
-    >>> # Procjena frekvencijskog ofseta (CFO)
-    >>> cfo_hat = pss_sync.estimate_cfo(rx_waveform, tau_hat, detected_nid)
-    >>> print("Procijenjeni CFO (Hz):", cfo_hat)
-    >>>
-    >>> # Korekcija CFO-a na primljeni signal
-    >>> rx_corrected = pss_sync.apply_cfo_correction(rx_waveform, cfo_hat)
-
-    Napomene
-    --------
-    - Klasa je namijenjena za LTE prijemne lance i sinhronizaciju PSS signala.
-    - Funkcije koriste kompleksne numpy nizove i NumPy operacije za vektorizaciju.
-    - Primjeri korištenja pokazuju puni lanac: korelacija, detekcija N_ID_2, procjena tau i CFO, korekcija signala.
-    - Prikaz magnitude korelacije pomaže vizualno provjeriti koji N_ID_2 signal najbolje odgovara primljenom signalu.
+    PSSSynchronizer (fix za OFDM waveform):
+    - Korelacija radi sa time-domain PSS TEMPLATE-om (CP+N uzoraka),
+      a ne sa 62 ZC uzorka u vremenu.
+    - CFO procjena radi iz z[n] = rx_seg[n] * conj(template[n]),
+      pa fazni nagib daje CFO.
     """
 
-    def __init__(self, sample_rate_hz, n_id_2_candidates=(0, 1, 2)):
-        """
-        Parametri
-        ----------
-        sample_rate_hz : float
-            Sample rate primljenog signala u Hz.
-        n_id_2_candidates : tuple of int
-            Kandidati za N_ID_2 (podrazumijevano: (0, 1, 2)).
-        """
+    def __init__(self, sample_rate_hz, n_id_2_candidates=(0, 1, 2), ndlrb=6, normal_cp=True):
         self.sample_rate_hz = float(sample_rate_hz)
-        self.n_id_2_candidates = n_id_2_candidates
+        self.n_id_2_candidates = tuple(n_id_2_candidates)
+        self.ndlrb = int(ndlrb)
+        self.normal_cp = bool(normal_cp)
+
+        # Template-i se grade jednom
+        self._templates = self._build_time_templates()
+
+    @staticmethod
+    def _symbol_start_indices(ofdm: OFDMModulator) -> list[int]:
+        starts = []
+        idx = 0
+        for sym_idx in range(ofdm.num_ofdm_symbols):
+            starts.append(idx)
+            cp_len = int(ofdm.cp_lengths[sym_idx % ofdm.n_symbols_per_slot])
+            idx += ofdm.N + cp_len
+        return starts
+
+    def _build_time_templates(self) -> dict[int, np.ndarray]:
+        """
+        Za svaki N_ID_2 generiše TX waveform (1 subframe) i izvadi PSS OFDM simbol (CP+N).
+        """
+        templates: dict[int, np.ndarray] = {}
+
+        for nid in self.n_id_2_candidates:
+            tx = LTETxChain(n_id_2=nid, ndlrb=self.ndlrb, num_subframes=1, normal_cp=self.normal_cp)
+            tx_waveform, fs = tx.generate_waveform(mib_bits=None)
+
+            # Sample-rate check (mora se poklapati s RX fs)
+            fs = float(fs)
+            if abs(fs - self.sample_rate_hz) > 1e-6:
+                raise ValueError(f"Template fs={fs} Hz != RX fs={self.sample_rate_hz} Hz")
+
+            ofdm = OFDMModulator(tx.grid)
+            starts = self._symbol_start_indices(ofdm)
+
+            pss_sym = 6 if self.normal_cp else 5
+            pss_start = int(starts[pss_sym])
+            cp_len = int(ofdm.cp_lengths[pss_sym % ofdm.n_symbols_per_slot])
+            L = int(ofdm.N + cp_len)
+
+            templates[nid] = np.asarray(tx_waveform[pss_start:pss_start + L], dtype=np.complex128)
+
+        return templates
 
     def correlate(self, rx_waveform):
         """
-        Vrši korelaciju primljenog signala sa svim PSS kandidatima.
-
-        Parametri
-        ----------
-        rx_waveform : np.ndarray
-            1D kompleksni baznopojasni primljeni signal.
-
-        Povratna vrijednost
-        -------------------
-        corr_metrics : np.ndarray
-            Kompleksne korelacione metrike oblika
-            (broj_kandidata, vrijeme).
-
-        Komentari
-        ---------
-        - Korelacija u kompleksnom domenu zahtijeva konjugovanu referencu.
-        - Normalizacija korelacije uklanja uticaj energije signala.
-        - Time se obezbjeđuje da maksimalni pik odgovara
-          stvarnoj sličnosti PSS sekvence, a ne njenoj energiji.
+        Normalizovana korelacija rx sa OFDM time-domain template-ima (CP+N):
+            c[tau] = <rx_win, template> / (||rx_win|| * ||template||)
+        Vraća kompleksne metrike (kandidati x tau).
         """
-        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
+        rx = np.asarray(rx_waveform, dtype=np.complex128)
 
-        pss_len = len(PSSGenerator.generate(self.n_id_2_candidates[0]))
-        corr_len = len(rx_waveform) - pss_len + 1
+        nids = list(self._templates.keys())
+        L = self._templates[nids[0]].size
+        corr_len = rx.size - L + 1
+        if corr_len <= 0:
+            raise ValueError("RX je prekratak za PSS korelaciju (CP+N template).")
 
-        corr_metrics = np.zeros(
-            (len(self.n_id_2_candidates), corr_len),
-            dtype=np.complex128
-        )
+        # sliding energija rx prozora
+        rx_energy = np.convolve(np.abs(rx) ** 2, np.ones(L, dtype=np.float64), mode="valid")
+        rx_energy = np.maximum(rx_energy, 1e-12)
 
-        for i, nid in enumerate(self.n_id_2_candidates):
-            pss = PSSGenerator.generate(nid).astype(np.complex128)
-            pss_energy = np.linalg.norm(pss)
+        corr_metrics = np.zeros((len(nids), corr_len), dtype=np.complex128)
 
-            for k in range(corr_len):
-                segment = rx_waveform[k:k + pss_len]
-                seg_energy = np.linalg.norm(segment)
+        for i, nid in enumerate(nids):
+            t = self._templates[nid]
+            t_energy = float(np.sum(np.abs(t) ** 2))
+            t_energy = max(t_energy, 1e-12)
 
-                if seg_energy == 0.0:
-                    corr_metrics[i, k] = 0.0
-                else:
-                    corr_metrics[i, k] = (
-                        np.vdot(pss, segment)
-                        / (pss_energy * seg_energy)
-                    )
+            # np.correlate za kompleksne već radi conj(t) interno
+            c = np.correlate(rx, t, mode="valid")
+            corr_metrics[i, :] = c / np.sqrt(rx_energy * t_energy)
 
         return corr_metrics
 
     def estimate_timing(self, corr_metrics):
         """
-        Procjenjuje vremenski pomak (tau_hat) i detektuje N_ID_2
-        na osnovu maksimuma magnitude korelacije.
-
-        Parametri
-        ----------
-        corr_metrics : np.ndarray
-            Korelacione metrike dobijene iz metode `correlate()`.
-
-        Povratne vrijednosti
-        --------------------
-        tau_hat : int
-            Procijenjeni vremenski pomak (indeks uzorka).
-        detected_nid : int
-            Detektovani N_ID_2 indeks.
-
-        Komentari
-        ---------
-        - Maksimalna magnitude korelacije pokazuje
-          najvjerovatniji PSS signal.
+        tau_hat + detected_nid iz maksimuma |corr|.
         """
-        max_idx = np.unravel_index(
-            np.abs(corr_metrics).argmax(),
-            corr_metrics.shape
-        )
-
+        max_idx = np.unravel_index(np.abs(corr_metrics).argmax(), corr_metrics.shape)
         tau_hat = int(max_idx[1])
         detected_nid = self.n_id_2_candidates[max_idx[0]]
-
         return tau_hat, detected_nid
 
     def estimate_cfo(self, rx_waveform, tau_hat, n_id_2):
         """
-        Procjenjuje frekvencijski ofset (CFO) iz detektovanog PSS segmenta.
-
-        Parametri
-        ----------
-        rx_waveform : np.ndarray
-            Primljeni kompleksni signal.
-        tau_hat : int
-            Procijenjeni vremenski pomak.
-        n_id_2 : int
-            Detektovani PSS indeks.
-
-        Povratna vrijednost
-        -------------------
-        cfo_hat : float
-            Procijenjeni CFO u Hz.
-
-        Komentari
-        ---------
-        - Procjena se bazira na prosječnoj faznoj rotaciji
-          između uzastopnih uzoraka PSS-a.
+        CFO iz segmenta oko PSS:
+        - Uzmi rx_seg (CP+N) i template (CP+N)
+        - z[n] = rx_seg[n] * conj(template[n])
+        - CFO ~ mean(angle(z[n] * conj(z[n-1]))) * fs/(2pi)
         """
-        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
+        rx = np.asarray(rx_waveform, dtype=np.complex128)
+        t = self._templates[int(n_id_2)]
+        L = t.size
 
-        pss = PSSGenerator.generate(n_id_2).astype(np.complex128)
-        pss_len = len(pss)
+        rx_seg = rx[int(tau_hat): int(tau_hat) + L]
+        if rx_seg.size < L:
+            raise ValueError("RX segment za CFO je prekratak.")
 
-        rx_pss = rx_waveform[tau_hat:tau_hat + pss_len]
-
-        phase_diff = np.angle(rx_pss[1:] * np.conj(rx_pss[:-1]))
-        cfo_hat = np.mean(phase_diff) * self.sample_rate_hz / (2.0 * np.pi)
-
+        z = rx_seg * np.conj(t)
+        v = np.sum(z[1:] * np.conj(z[:-1]))       # kompleksni “average phasor”
+        phi = np.angle(v)
+        cfo_hat = phi * self.sample_rate_hz / (2.0 * np.pi)
         return float(cfo_hat)
 
     def apply_cfo_correction(self, rx_waveform, cfo_hat):
         """
-        Primjenjuje korekciju frekvencijskog ofseta (CFO)
-        na primljeni signal.
-
-        Parametri
-        ----------
-        rx_waveform : np.ndarray
-            Primljeni kompleksni signal.
-        cfo_hat : float
-            Procijenjeni CFO u Hz.
-
-        Povratna vrijednost
-        -------------------
-        rx_corrected : np.ndarray
-            Signal nakon korekcije CFO-a.
-
-        Komentari
-        ---------
-        - Negativni ofset se primjenjuje
-          da bi se poništio procijenjeni CFO.
+        Primijeni -cfo_hat da poništi CFO.
         """
-        rx_waveform = np.asarray(rx_waveform, dtype=np.complex128)
-
-        fo = FrequencyOffset(
-            freq_offset_hz=-cfo_hat,
-            sample_rate_hz=self.sample_rate_hz
-        )
-
-        return fo.apply(rx_waveform)
+        rx = np.asarray(rx_waveform, dtype=np.complex128)
+        fo = FrequencyOffset(freq_offset_hz=-cfo_hat, sample_rate_hz=self.sample_rate_hz)
+        return fo.apply(rx)
