@@ -11,7 +11,6 @@ import matplotlib.patches as patches
 # -----------------------------------------------------------------------
 # 1. KONFIGURACIJA PROJEKTA
 # -----------------------------------------------------------------------
-# Dodajemo root projekta u sys.path da Python vidi tvoje foldere
 project_root = Path(__file__).resolve().parent.parent
 if str(project_root) not in sys.path:
     sys.path.append(str(project_root))
@@ -34,7 +33,6 @@ def plot_rx_grid_heatmap(
     """
     Crta heatmapu RX grida i sprema je u examples/results/rx/.
     """
-
     
     results_dir = project_root / "examples" / "results" / "rx"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -44,11 +42,9 @@ def plot_rx_grid_heatmap(
         out_file = results_dir / "rx_grid_heatmap.png"
     else:
         out_path = Path(out_path)
-        # Ako je dato samo ime fajla, stavi ga u results/rx
         if out_path.parent == Path("."):
             out_file = results_dir / out_path.name
         else:
-            
             out_file = out_path
             out_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -59,7 +55,7 @@ def plot_rx_grid_heatmap(
     # Crtanje
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    # Heatmap (origin='lower' je bitan za frekvenciju)
+    # Heatmap 
     im = ax.imshow(
         mag, 
         aspect="auto", 
@@ -92,6 +88,7 @@ def plot_rx_grid_heatmap(
         if valid_pbch:
             start = valid_pbch[0]
             width = len(valid_pbch)
+            # PBCH zauzima sve subcarriere u resursnom bloku (pojednostavljeno)
             rect_pbch = patches.Rectangle(
                 (start - 0.5, 0), width, n_subcarriers,
                 linewidth=2, edgecolor="cyan", facecolor="none", hatch="//", label="PBCH"
@@ -131,9 +128,9 @@ def plot_rx_grid_heatmap(
 # 3. GLAVNI PROGRAM (PIPELINE)
 # -----------------------------------------------------------------------
 if __name__ == "__main__":
-    print("--- Pokrećem C3 RX Pipeline ---")
+    print("--- Pokrećem C3 RX Pipeline (FIXED) ---")
 
-    # LAZY IMPORTS (Da izbjegnemo kružne greške)
+    # LAZY IMPORTS
     try:
         from transmitter.LTETxChain import LTETxChain
         from channel.lte_channel import LTEChannel
@@ -148,7 +145,6 @@ if __name__ == "__main__":
     
     # 1. TX GENERISANJE
     print("1. [TX] Generisanje signala...")
-   
     try:
         tx = LTETxChain()
     except TypeError:
@@ -177,12 +173,13 @@ if __name__ == "__main__":
     if tau_hat < 0 or tau_hat >= len(rx_waveform) - 1000:
         print("   [WARN] Sync fail, koristim 0.")
         tau_hat = 0
-        
+    
+    # Ovdje režemo signal tačno na početku PSS-a.
+    # To znači da je u 'rx_aligned' PSS na indeksu 0!
     rx_aligned = rx_waveform[tau_hat:]
 
     # 4. OFDM DEMODULACIJA
     print("4. [RX] OFDM Demodulacija...")
-    # klasa koristi 'ndlrb'
     ofdm_rx = OFDMDemodulator(ndlrb=6)
     
     # 1. Dobijemo sirovi grid (Simboli x FFT)
@@ -193,16 +190,31 @@ if __name__ == "__main__":
     
     # 3. Transponujemo za plot (72 x Simboli)
     rx_grid_final = grid_active.T
+
+    # -------------------------------------------------------------------
+    # KLJUČNI FIX: FFT SHIFT
+    # -------------------------------------------------------------------
+    # OFDM demodulator obično vraća DC na indexu 0.
+    # Da bi PSS bio u sredini (kako vizualizacija očekuje), moramo rotirati.
+    rx_grid_final = np.fft.fftshift(rx_grid_final, axes=0)
     
     print(f"   --> Grid shape za plot: {rx_grid_final.shape}")
 
     # 5. VIZUALIZACIJA
     print("5. [PLOT] Crtanje...")
+    
+    # Budući da rx_aligned počinje s PSS-om, PSS je na simbolu 0.
+    # PBCH slijedi odmah nakon PSS-a (simboli 1, 2, 3, 4).
+    plot_pss_loc = 0
+    plot_pbch_loc = [1, 2, 3, 4]
+
     path = plot_rx_grid_heatmap(
         rx_grid_final,
         title=f"RX Grid (CellID={nid}, SNR={snr_db}dB)",
         highlight_pss=True,
-        highlight_pbch=True
+        highlight_pbch=True,
+        pss_symbol_index=plot_pss_loc,      # Prilagođeno podacima
+        pbch_symbol_indices=plot_pbch_loc   # Prilagođeno podacima
     )
     
     print("------------------------------------------------")
