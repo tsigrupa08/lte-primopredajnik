@@ -57,8 +57,9 @@ class OFDMDemodulator:
             15: 256,
             25: 512,
             50: 1024,
-            75: 1408,
-            100: 1408,
+            75: 1536,
+            100: 2048,
+
         }
 
         if ndlrb not in fft_map:
@@ -126,7 +127,7 @@ class OFDMDemodulator:
             ]
 
             # 2. FFT
-            ofdm_symbol_freq = np.fft.fft(ofdm_symbol_time)
+            ofdm_symbol_freq = np.fft.fft(ofdm_symbol_time) / self.fft_size
 
             # 3. FFT shift (DC u sredinu)
             ofdm_symbol_freq = np.fft.fftshift(ofdm_symbol_freq)
@@ -144,16 +145,16 @@ class OFDMDemodulator:
     # ==============================================================
     # AKTIVNI SUBCARRIERS
     # ==============================================================
-
     def extract_active_subcarriers(self, grid):
-        """
-        Izdvaja samo aktivne subcarriere iz OFDM grida.
-        """
-
         center = self.fft_size // 2
-        half = self.n_subcarriers // 2
+        half = self.n_subcarriers // 2  # 36 za ndlrb=6
 
-        return grid[:, center - half : center + half]
+        neg = grid[:, center - half:center]           # 36 negativnih
+        pos = grid[:, center + 1:center + 1 + half]   # 36 pozitivnih (preskoči DC)
+
+        return np.concatenate([neg, pos], axis=1)
+
+   
 
 
 # ==============================================================
