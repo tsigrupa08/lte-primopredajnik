@@ -40,6 +40,7 @@ telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.
 
 ## Struktura projekta
 
+```text
 lte-primopredajnik/
 ├─ channel/
 ├─ common/
@@ -50,6 +51,7 @@ lte-primopredajnik/
 ├─ receiver/
 ├─ tests/
 └─ transmitter/
+```
 
 
 ## Trenutno stanje projekta
