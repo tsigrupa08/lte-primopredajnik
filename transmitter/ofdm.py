@@ -128,7 +128,7 @@ class OFDMModulator:
         ValueError
             Ako NDLRB nije podržan ili je `new_fft_size` nevalidan.
         """
-        fft_map = {6: 128, 15: 256, 25: 512, 50: 1024, 75: 1408, 100: 1408}
+        fft_map = {6: 128, 15: 256, 25: 512, 50: 1024, 75: 1536, 100: 2048,}
         if self.ndlrb not in fft_map:
             raise ValueError("NDLRB mora biti jedan od [6, 15, 25, 50, 75, 100].")
 
@@ -203,7 +203,7 @@ class OFDMModulator:
             ifft_input[neg_freq_indices] = self.resource_grid[neg_subcarriers, sym_idx]
 
             # IFFT (skalirano sa N)
-            ifft_output: np.ndarray = self.N * np.fft.ifft(ifft_input, self.N)
+            ifft_output = self.N * np.fft.ifft(np.fft.ifftshift(ifft_input), self.N)
 
             sym_in_slot: int = sym_idx % self.n_symbols_per_slot
             cp_len: int = int(self.cp_lengths[sym_in_slot])
