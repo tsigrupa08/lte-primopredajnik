@@ -62,39 +62,37 @@ Projekat je u funkcionalnoj fazi i implementiran je kompletan osnovni LTE lanac 
 - Razvijeni su unit testovi i end-to-end testovi za validaciju funkcionalnosti.
 - Dostupne su vizualizacije ključnih faza sistema (PSS korelacija, RX grid, konstelacije i prijem bitova).
 
-Projekat je spreman za dalje proširenje, optimizaciju i analizu performansi (npr. BER/CRC u zavisnosti od SNR-a).
+Projekat je spreman za dalje proširenje, optimizaciju i analizu performansi.
 
 ## Pokretanje projekta
 
 ### Kloniranje repozitorija
 
-git clone https://github.com/tsigrupa08/lte-primopredajnik.git
-cd lte-primopredajnik
+- git clone https://github.com/tsigrupa08/lte-primopredajnik.git
+- cd lte-primopredajnik
 
 ### Kreiranje virtualnog okruženja
 
-python -m venv .venv
+- python -m venv .venv
 
 ### Aktivacija virtualnog okruženja:
 
-Linux / macOS:
+- Linux / macOS:
 source .venv/bin/activate
 
-Windows:
+- Windows:
 .venv\Scripts\activate
 
 ### Instalacija zavisnosti
 
-pip install -r requirements.txt
+- pip install -r requirements.txt
 
 ## Testiranje
 
-Testovi koriste pytest i pokreću se iz terminala naredbom:
-
-pytest
+Testovi koriste pytest i pokreću se iz terminala naredbom 'pytest'.
 
 ## Dokumentacija
 
-Automatski generisana tehnička dokumentacija (Doxygen): [docs/html/index.html](https://tsigrupa08.github.io/lte-primopredajnik/html/)
+Automatski generisana tehnička dokumentacija (Doxygen): [docs/html/index.html](https://tsigrupa08.github.io/lte-primopredajnik/html/).
 
 
