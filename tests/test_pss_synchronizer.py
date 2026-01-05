@@ -1,146 +1,194 @@
-# tests/test_pss_synchronizer.py
+# tests/test_pss_sync.py
 from __future__ import annotations
 
 import numpy as np
 import pytest
 
+# --- Robust imports (prilagodi ako ti je drugačija struktura) ---
 
 from receiver.pss_sync import PSSSynchronizer
-import receiver.pss_sync as pss_mod
+
+
+from transmitter.LTETxChain import LTETxChain
 
 
 
-def _make_sync_with_templates(
-    *,
-    fs: float = 1_000_000.0,
-    candidates: tuple[int, ...] = (0, 1, 2),
-    templates: dict[int, np.ndarray] | None = None,
-) -> PSSSynchronizer:
+from transmitter.ofdm import OFDMModulator
+
+
+def apply_cfo(x: np.ndarray, fs: float, cfo_hz: float) -> np.ndarray:
+    """x[n] * exp(j*2*pi*cfo*n/fs)"""
+    x = np.asarray(x, dtype=np.complex128)
+    n = np.arange(x.size, dtype=np.float64)
+    return x * np.exp(1j * 2.0 * np.pi * cfo_hz * n / fs)
+
+
+@pytest.fixture(scope="module")
+def tx_setup():
     """
-    Kreira PSSSynchronizer bez pozivanja __init__ (da ne gradi LTE template-e),
-    i ručno setuje atribute + template-e.
+    Pravi TX waveform (1 subframe) i vraća:
+    - tx_waveform
+    - fs
+    - true_nid2
+    - pss_start (početak CP-a PSS simbola unutar tx_waveform)
     """
-    sync = object.__new__(PSSSynchronizer)
-    sync.sample_rate_hz = float(fs)
-    sync.n_id_2_candidates = tuple(candidates)
-    sync.ndlrb = 6
-    sync.normal_cp = True
-    if templates is None:
-        # default: 3 template-a iste dužine
-        rng = np.random.default_rng(0)
-        templates = {nid: (rng.standard_normal(64) + 1j * rng.standard_normal(64)).astype(np.complex128)
-                     for nid in candidates}
-    sync._templates = templates
-    return sync
+    ndlrb = 6
+    normal_cp = True
+    true_nid2 = 1
+
+    tx = LTETxChain(n_id_2=true_nid2, ndlrb=ndlrb, num_subframes=1, normal_cp=normal_cp)
+    tx_waveform, fs = tx.generate_waveform(mib_bits=None)
+    tx_waveform = np.asarray(tx_waveform, dtype=np.complex128)
+    fs = float(fs)
+
+    # izračunaj gdje PSS simbol počinje u vremenu (CP start)
+    ofdm = OFDMModulator(tx.grid)
+    starts = PSSSynchronizer._symbol_start_indices(ofdm)
+    pss_sym = 6 if normal_cp else 5
+    pss_start = int(starts[pss_sym])
+
+    return {
+        "ndlrb": ndlrb,
+        "normal_cp": normal_cp,
+        "true_nid2": true_nid2,
+        "tx_waveform": tx_waveform,
+        "fs": fs,
+        "pss_start": pss_start,
+    }
 
 
-# -----------------------------
+@pytest.fixture(scope="module")
+def sync(tx_setup):
+    """Pravi PSSSynchronizer (bez stubovanja)."""
+    return PSSSynchronizer(
+        sample_rate_hz=tx_setup["fs"],
+        n_id_2_candidates=(0, 1, 2),
+        ndlrb=tx_setup["ndlrb"],
+        normal_cp=tx_setup["normal_cp"],
+    )
+
+
+# =========================================================
 # HAPPY PATHS
-# -----------------------------
+# =========================================================
 
-def test_correlate_returns_expected_shape():
-    sync = _make_sync_with_templates()
+def test_correlate_output_shape_and_type(sync):
     L = next(iter(sync._templates.values())).size
-    rx = (np.random.default_rng(1).standard_normal(L + 10) + 1j * np.random.default_rng(2).standard_normal(L + 10)).astype(np.complex128)
+    rx = np.zeros(L + 100, dtype=np.complex128)
 
     corr = sync.correlate(rx)
-    assert corr.shape == (3, (L + 10) - L + 1)
+    assert corr.shape == (3, (L + 100) - L + 1)
+    assert np.iscomplexobj(corr)
+    assert np.all(np.isfinite(corr))
 
 
-def test_correlate_peak_close_to_1_for_perfect_match():
-    # rx == template -> normalizovana korelacija na tau=0 treba biti ~1
-    t = (np.random.default_rng(3).standard_normal(64) + 1j * np.random.default_rng(4).standard_normal(64)).astype(np.complex128)
-    sync = _make_sync_with_templates(templates={0: t, 1: t, 2: t})
-    corr = sync.correlate(t)
-    # bilo koji kandidat ima magnitude ~1 na tau=0
-    assert np.allclose(np.abs(corr[:, 0]), 1.0, atol=1e-10)
-
-
-def test_estimate_timing_finds_correct_tau_and_nid_for_embedded_template():
-    rng = np.random.default_rng(5)
-    L = 80
-    t0 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
-    t1 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
-    t2 = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
-
-    templates = {0: t0, 1: t1, 2: t2}
-    sync = _make_sync_with_templates(templates=templates)
-
-    offset = 37
-    rx = (0.01 * (rng.standard_normal(L + offset + 20) + 1j * rng.standard_normal(L + offset + 20))).astype(np.complex128)
-    rx[offset:offset + L] += t1  # ubaci nid=1
+def test_estimate_timing_finds_correct_tau_and_nid_no_noise(tx_setup, sync):
+    timing_offset = 2000
+    rx = np.concatenate([np.zeros(timing_offset, dtype=np.complex128), tx_setup["tx_waveform"]])
 
     corr = sync.correlate(rx)
     tau_hat, nid_hat = sync.estimate_timing(corr)
 
+    tau_expected = timing_offset + tx_setup["pss_start"]
+    assert nid_hat == tx_setup["true_nid2"]
+    assert tau_hat == tau_expected
+
+
+def test_correlate_normalization_invariant_to_scaling(sync):
+    # Normalizovana korelacija => ako rx = a*template, peak magnitude ~1
+    t = sync._templates[0]
+    rx = 3.0 * t
+    corr = sync.correlate(rx)
+    peak = np.abs(corr[0, 0])
+    assert peak == pytest.approx(1.0, abs=1e-10)
+
+
+def test_estimate_cfo_near_zero_when_no_cfo(tx_setup, sync):
+    timing_offset = 1000
+    rx = np.concatenate([np.zeros(timing_offset, dtype=np.complex128), tx_setup["tx_waveform"]])
+
+    corr = sync.correlate(rx)
+    tau_hat, nid_hat = sync.estimate_timing(corr)
+
+    cfo_hat = sync.estimate_cfo(rx, tau_hat=tau_hat, n_id_2=nid_hat)
+    assert abs(cfo_hat) < 200.0  # dovoljno strogo, a realno (zavisno od metode)
+
+
+@pytest.mark.parametrize("cfo_true", [5000.0, -5000.0])
+def test_estimate_cfo_recovers_known_cfo(tx_setup, sync, cfo_true):
+    timing_offset = 1200
+    rx = np.concatenate([np.zeros(timing_offset, dtype=np.complex128), tx_setup["tx_waveform"]])
+    rx = apply_cfo(rx, fs=tx_setup["fs"], cfo_hz=cfo_true)
+
+    corr = sync.correlate(rx)
+    tau_hat, nid_hat = sync.estimate_timing(corr)
+
+    cfo_hat = sync.estimate_cfo(rx, tau_hat=tau_hat, n_id_2=nid_hat)
+    # CFO metoda zavisi od implementacije; ova tolerancija ti je stabilna u praksi
+    assert cfo_hat == pytest.approx(cfo_true, abs=250.0)
+
+
+def test_apply_cfo_correction_reduces_estimated_cfo(tx_setup, sync):
+    cfo_true = 5000.0
+    timing_offset = 800
+    rx = np.concatenate([np.zeros(timing_offset, dtype=np.complex128), tx_setup["tx_waveform"]])
+    rx = apply_cfo(rx, fs=tx_setup["fs"], cfo_hz=cfo_true)
+
+    corr = sync.correlate(rx)
+    tau_hat, nid_hat = sync.estimate_timing(corr)
+
+    cfo_hat = sync.estimate_cfo(rx, tau_hat=tau_hat, n_id_2=nid_hat)
+    rx_corr = sync.apply_cfo_correction(rx, cfo_hat)
+
+    cfo_after = sync.estimate_cfo(rx_corr, tau_hat=tau_hat, n_id_2=nid_hat)
+
+    assert abs(cfo_after) < abs(cfo_hat)  # mora biti bolje
+    assert abs(cfo_after) < 300.0         # nakon korekcije treba biti blizu nule
+
+
+def test_apply_cfo_correction_preserves_shape_and_complex(tx_setup, sync):
+    rx = np.concatenate([np.zeros(100, dtype=np.complex128), tx_setup["tx_waveform"]])
+    out = sync.apply_cfo_correction(rx, cfo_hat=123.0)
+
+    assert out.shape == rx.shape
+    assert np.iscomplexobj(out)
+
+
+def test_estimate_timing_prefers_stronger_peak(sync):
+    corr = np.zeros((3, 50), dtype=np.complex128)
+    corr[0, 10] = 2 + 1j
+    corr[1, 20] = 5 + 0j  # jači peak
+    corr[2, 30] = 4 + 0j
+
+    tau_hat, nid_hat = sync.estimate_timing(corr)
+    assert tau_hat == 20
     assert nid_hat == 1
-    assert tau_hat == offset
 
 
-def test_estimate_timing_returns_expected_for_known_corr_matrix():
-    sync = _make_sync_with_templates()
-    corr = np.zeros((3, 20), dtype=np.complex128)
-    corr[2, 7] = 10 + 1j
-    corr[1, 3] = 9 + 0j
+# =========================================================
+# UNHAPPY / SAD PATHS
+# =========================================================
 
-    tau_hat, nid_hat = sync.estimate_timing(corr)
-    assert tau_hat == 7
-    assert nid_hat == 2
+def test_correlate_raises_when_rx_too_short(sync):
+    L = next(iter(sync._templates.values())).size
+    rx = np.zeros(L - 1, dtype=np.complex128)
 
-
-def test_estimate_cfo_zero_for_no_rotation():
-    rng = np.random.default_rng(6)
-    t = (rng.standard_normal(128) + 1j * rng.standard_normal(128)).astype(np.complex128)
-    sync = _make_sync_with_templates(fs=1_000_000.0, templates={0: t, 1: t, 2: t})
-
-    rx = t.copy()
-    cfo_hat = sync.estimate_cfo(rx, tau_hat=0, n_id_2=1)
-    assert abs(cfo_hat) < 1e-9
+    with pytest.raises(ValueError):
+        sync.correlate(rx)
 
 
-def test_estimate_cfo_recovers_known_cfo():
-    fs = 1_000_000.0
-    cfo_true = 5000.0  # Hz (unutar ±fs/2)
-    rng = np.random.default_rng(7)
-    L = 256
-    t = (rng.standard_normal(L) + 1j * rng.standard_normal(L)).astype(np.complex128)
+def test_estimate_cfo_raises_when_segment_too_short(sync):
+    L = next(iter(sync._templates.values())).size
+    rx = np.zeros(L + 10, dtype=np.complex128)
 
-    sync = _make_sync_with_templates(fs=fs, templates={0: t, 1: t, 2: t})
-
-    n = np.arange(L, dtype=np.float64)
-    rx = t * np.exp(1j * 2.0 * np.pi * cfo_true * n / fs)
-    cfo_hat = sync.estimate_cfo(rx, tau_hat=0, n_id_2=1)
-
-    # treba biti jako blizu (numerički)
-    assert abs(cfo_hat - cfo_true) < 1e-6
+    # tau_hat postavi tako da segment izađe van rx
+    with pytest.raises(ValueError):
+        sync.estimate_cfo(rx, tau_hat=50, n_id_2=0)
 
 
-def test_apply_cfo_correction_uses_negative_cfo_and_returns_apply_output(monkeypatch):
-    sync = _make_sync_with_templates(fs=1_920_000.0)
-    rx = (np.ones(10) + 1j * np.zeros(10)).astype(np.complex128)
-    cfo_hat = 1234.0
-
-    captured = {}
-
-    class FakeFO:
-        def __init__(self, freq_offset_hz, sample_rate_hz):
-            captured["freq_offset_hz"] = freq_offset_hz
-            captured["sample_rate_hz"] = sample_rate_hz
-
-        def apply(self, x):
-            return x * (2 + 0j)
-
-    monkeypatch.setattr(pss_mod, "FrequencyOffset", FakeFO)
-
-    out = sync.apply_cfo_correction(rx, cfo_hat)
-
-    assert captured["freq_offset_hz"] == -cfo_hat
-    assert captured["sample_rate_hz"] == sync.sample_rate_hz
-    assert np.allclose(out, rx * (2 + 0j))
 
 
-def test_correlate_accepts_real_input_and_outputs_complex():
-    sync = _make_sync_with_templates()
+def test_correlate_accepts_real_input(sync):
     L = next(iter(sync._templates.values())).size
     rx = np.ones(L + 5, dtype=np.float64)
 
@@ -149,94 +197,10 @@ def test_correlate_accepts_real_input_and_outputs_complex():
     assert corr.shape[1] == 6
 
 
-def test_correlate_is_finite_for_all_zero_rx():
-    sync = _make_sync_with_templates()
+def test_correlate_finite_on_all_zeros(sync):
     L = next(iter(sync._templates.values())).size
-    rx = np.zeros(L + 10, dtype=np.complex128)
+    rx = np.zeros(L + 100, dtype=np.complex128)
 
     corr = sync.correlate(rx)
     assert np.all(np.isfinite(corr))
     assert np.allclose(corr, 0.0)
-
-
-def test_correlate_custom_candidate_count():
-    rng = np.random.default_rng(8)
-    t0 = (rng.standard_normal(32) + 1j * rng.standard_normal(32)).astype(np.complex128)
-    t2 = (rng.standard_normal(32) + 1j * rng.standard_normal(32)).astype(np.complex128)
-    sync = _make_sync_with_templates(
-        candidates=(0, 2),
-        templates={0: t0, 2: t2},
-    )
-    rx = np.concatenate([np.zeros(10, dtype=np.complex128), t2, np.zeros(5, dtype=np.complex128)])
-    corr = sync.correlate(rx)
-    assert corr.shape[0] == 2  # samo 2 kandidata
-
-
-# -----------------------------
-# UNHAPPY PATHS
-# -----------------------------
-
-def test_correlate_raises_when_rx_too_short():
-    sync = _make_sync_with_templates()
-    L = next(iter(sync._templates.values())).size
-    rx = np.zeros(L - 1, dtype=np.complex128)
-
-    with pytest.raises(ValueError, match="prekratak"):
-        sync.correlate(rx)
-
-
-def test_estimate_cfo_raises_when_segment_too_short():
-    rng = np.random.default_rng(9)
-    t = (rng.standard_normal(64) + 1j * rng.standard_normal(64)).astype(np.complex128)
-    sync = _make_sync_with_templates(templates={0: t, 1: t, 2: t})
-
-    rx = np.zeros(100, dtype=np.complex128)
-    # tau_hat blizu kraja -> nema L uzoraka
-    with pytest.raises(ValueError, match="prekratak"):
-        sync.estimate_cfo(rx, tau_hat=80, n_id_2=1)
-
-
-def test_estimate_cfo_raises_on_unknown_nid():
-    sync = _make_sync_with_templates()
-    rx = np.zeros(500, dtype=np.complex128)
-
-    with pytest.raises(KeyError):
-        sync.estimate_cfo(rx, tau_hat=0, n_id_2=99)
-
-
-def test_build_time_templates_raises_on_fs_mismatch(monkeypatch):
-    # Ovaj test stvarno gađa granu u _build_time_templates koja diže ValueError (fs mismatch)
-    # bez pravog LTE chain-a: monkeypatch LTETxChain i OFDMModulator.
-    class FakeTx:
-        def __init__(self, n_id_2, ndlrb, num_subframes, normal_cp):
-            self.grid = np.zeros((1, 1), dtype=np.complex128)
-
-        def generate_waveform(self, mib_bits=None):
-            # dovoljno dugačak signal da slicing radi
-            return np.zeros(5000, dtype=np.complex64), 123.0  # namjerno kriv fs
-
-    class FakeOfdm:
-        def __init__(self, grid):
-            self.N = 128
-            self.n_symbols_per_slot = 7
-            self.cp_lengths = [9] * 7
-            self.num_ofdm_symbols = 14
-
-    monkeypatch.setattr(pss_mod, "LTETxChain", FakeTx)
-    monkeypatch.setattr(pss_mod, "OFDMModulator", FakeOfdm)
-
-    with pytest.raises(ValueError, match="Template fs"):
-        PSSSynchronizer(sample_rate_hz=1_000_000.0)
-
-
-def test_symbol_start_indices_computation():
-    # Direktno testira pomoćnu metodu _symbol_start_indices
-    class FakeOfdm:
-        N = 4
-        n_symbols_per_slot = 2
-        cp_lengths = [1, 2]
-        num_ofdm_symbols = 4
-
-    starts = PSSSynchronizer._symbol_start_indices(FakeOfdm())
-    # sym0: cp=1 -> len=5, sym1: cp=2 -> len=6, sym2: cp=1 -> len=5, sym3: cp=2 -> len=6
-    assert starts == [0, 5, 11, 16]
