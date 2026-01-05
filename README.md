@@ -41,15 +41,16 @@ telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.
 ## Struktura projekta
 
 lte-primopredajnik/
-│-channel
-│-common
-│-docs
-│-examples
-│-gui
-│-LTE_system_
-│-receiver
-│-tests
-│-transmitter
+├─ channel/
+├─ common/
+├─ docs/
+├─ examples/
+├─ gui/
+├─ LTE_system_/
+├─ receiver/
+├─ tests/
+└─ transmitter/
+
 
 ## Trenutno stanje projekta
 
