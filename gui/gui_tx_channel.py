@@ -1,7 +1,7 @@
 # gui_tx_channel.py
 # Kako pokrenuti:
 #pip install streamlit matplotlib numpy
-##streamlit run gui_tx_channel.py
+##streamlit run gui/gui_tx_channel.py
 from __future__ import annotations
 
 import json
