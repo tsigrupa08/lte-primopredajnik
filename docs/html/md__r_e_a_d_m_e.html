@@ -93,34 +93,113 @@ $(function(){initNavTree('md__r_e_a_d_m_e.html','',''); });
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="autotoc_md0"></a></p>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md1"></a>
-Project Description</h1>
-<p>This project implements an LTE transceiver. The goal of the project is to enable simulation and/or practical implementation of sending and receiving LTE signals between devices or simulated channels. The project is educational in nature and can serve as a foundation for further development of telecommunication systems and experimentation with LTE protocols.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md2"></a>
-Features</h1>
-<ul>
-<li>Sending and receiving LTE signals</li>
-<li>Channel and interference simulation</li>
-<li>Basic LTE communication functionalities (modulation, demodulation, encoding, and decoding of data)</li>
-<li>Monitoring and logging of transmitted data</li>
-</ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md3"></a>
-Repository Structure</h1>
-<p>lte-primopredajnik/ │-channel │-common │-docs │-receiver │-examples │-tests │-transmitter</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
 Opis projekta</h1>
-<p>Ovaj projekat implementira LTE primopredajnik. Cilj projekta je omogućiti simulaciju/praktičnu implementaciju slanja i prijema LTE signala između uređaja ili simuliranih kanala. Projekat je edukativnog karaktera i može poslužiti kao osnova za dalji razvoj telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+<p>Ovaj projekat implementira LTE primopredajnik. Cilj projekta je omogućiti simulaciju i/ili praktičnu implementaciju slanja i prijema LTE signala između uređaja ili simuliranih kanala. Projekat je edukativnog karaktera i može poslužiti kao osnova za dalji razvoj telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.</p>
+<hr  />
+<h1 class="doxsection"><a class="anchor" id="autotoc_md3"></a>
 Šta se implementira</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
+Transmitter (TX)</h2>
 <ul>
-<li>Slanje i prijem LTE signala</li>
-<li>Simulacija kanala i interferencije</li>
-<li>Osnovne funkcionalnosti LTE komunikacije (modulacija, demodulacija, enkodiranje i dekodiranje podataka)</li>
-<li>Monitoring i logovanje prenesenih podataka</li>
+<li>Generisanje PSS sekvenci i mapiranje u resursni grid <br  />
+</li>
+<li>PBCH lanac: CRC, konvolucijsko kodiranje, rate matching i QPSK modulacija <br  />
+</li>
+<li>OFDM modulacija (IFFT i dodavanje cikličkog prefiksa)</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
-Struktura</h1>
-<p>lte-primopredajnik/ │-channel │-common │-docs │-receiver │-examples │-tests │-transmitter</p>
-<p>Automatski generisana tehnička dokumentacija (Doxygen): <a href="https://tsigrupa08.github.io/lte-primopredajnik/html/">docs/html/index.html</a> </p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+Channel</h2>
+<ul>
+<li>Simulacija AWGN kanala <br  />
+</li>
+<li>Modeliranje frekvencijskog ofseta (CFO)</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
+Receiver (RX)</h2>
+<ul>
+<li>PSS sinhronizacija (detekcija N_ID_2, procjena vremena i frekvencije) <br  />
+</li>
+<li>OFDM demodulacija (uklanjanje CP i FFT) <br  />
+</li>
+<li>Ekstrakcija PBCH simbola iz resursnog grida <br  />
+</li>
+<li>QPSK demapiranje, de-rate matching i Viterbi dekodiranje <br  />
+</li>
+<li>CRC provjera ispravnosti prijema</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+End-to-End LTE sistem</h2>
+<ul>
+<li>Integracija TX → Channel → RX <br  />
+</li>
+<li>Dekodiranje PBCH/MIB informacija <br  />
+</li>
+<li>Evaluacija ispravnosti prijema (CRC, BER)</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+Testiranje i vizualizacije</h2>
+<ul>
+<li>Unit testovi za sve ključne blokove (happy i unhappy slučajevi) <br  />
+</li>
+<li>End-to-end testovi LTE sistema <br  />
+</li>
+<li>Vizualizacije: PSS korelacija, RX grid, konstelacije i prikaz “od bitova do bitova”</li>
+</ul>
+<hr  />
+<h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+Struktura projekta</h1>
+<div class="fragment"><div class="line">lte-primopredajnik/</div>
+<div class="line">├─ channel/</div>
+<div class="line">├─ common/</div>
+<div class="line">├─ docs/</div>
+<div class="line">├─ examples/</div>
+<div class="line">├─ gui/</div>
+<div class="line">├─ LTE_system_/</div>
+<div class="line">├─ receiver/</div>
+<div class="line">├─ tests/</div>
+<div class="line">└─ transmitter/</div>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+Trenutno stanje projekta</h1>
+<p>Projekat je u funkcionalnoj fazi i implementiran je kompletan osnovni LTE lanac za simulaciju komunikacije.</p>
+<ul>
+<li>Implementiran je predajnik (TX) sa generisanjem PSS sekvenci, PBCH kodiranjem i OFDM modulacijom.</li>
+<li>Implementiran je kanal sa AWGN šumom i frekvencijskim ofsetom (CFO).</li>
+<li>Implementiran je prijemnik (RX) koji obuhvata PSS sinhronizaciju, OFDM demodulaciju, ekstrakciju PBCH simbola, demapiranje, dekodiranje i CRC provjeru.</li>
+<li>Omogućeno je end-to-end testiranje kompletnog sistema (TX → Channel → RX).</li>
+<li>Razvijeni su unit testovi i end-to-end testovi za validaciju funkcionalnosti.</li>
+<li>Dostupne su vizualizacije ključnih faza sistema (PSS korelacija, RX grid, konstelacije i prijem bitova).</li>
+</ul>
+<p>Projekat je spreman za dalje proširenje, optimizaciju i analizu performansi.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
+Pokretanje projekta</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+Kloniranje repozitorija</h2>
+<ul>
+<li>git clone <a href="https://github.com/tsigrupa08/lte-primopredajnik.git">https://github.com/tsigrupa08/lte-primopredajnik.git</a></li>
+<li>cd lte-primopredajnik</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
+Kreiranje virtualnog okruženja</h2>
+<ul>
+<li>python -m venv .venv</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
+Aktivacija virtualnog okruženja:</h2>
+<ul>
+<li>Linux / macOS: source .venv/bin/activate</li>
+<li>Windows: .venv\Scripts\activate</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+Instalacija zavisnosti</h2>
+<ul>
+<li>pip install -r requirements.txt</li>
+</ul>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
+Testiranje</h1>
+<p>Testovi koriste pytest i pokreću se iz terminala naredbom 'pytest'.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
+Dokumentacija</h1>
+<p>Automatski generisana tehnička dokumentacija (Doxygen): <a href="https://tsigrupa08.github.io/lte-primopredajnik/html/">docs/html/index.html</a>. </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->

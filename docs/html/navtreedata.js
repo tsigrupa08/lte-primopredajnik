@@ -26,12 +26,24 @@ var NAVTREE =
 [
   [ "LTE Primopredajnik", "index.html", [
     [ "LTE Transceiver", "md__r_e_a_d_m_e.html", [
-      [ "Project Description", "md__r_e_a_d_m_e.html#autotoc_md1", null ],
-      [ "Features", "md__r_e_a_d_m_e.html#autotoc_md2", null ],
-      [ "Repository Structure", "md__r_e_a_d_m_e.html#autotoc_md3", null ],
-      [ "Opis projekta", "md__r_e_a_d_m_e.html#autotoc_md4", null ],
-      [ "Šta se implementira", "md__r_e_a_d_m_e.html#autotoc_md5", null ],
-      [ "Struktura", "md__r_e_a_d_m_e.html#autotoc_md6", null ]
+      [ "Opis projekta", "md__r_e_a_d_m_e.html#autotoc_md1", null ],
+      [ "Šta se implementira", "md__r_e_a_d_m_e.html#autotoc_md3", [
+        [ "Transmitter (TX)", "md__r_e_a_d_m_e.html#autotoc_md4", null ],
+        [ "Channel", "md__r_e_a_d_m_e.html#autotoc_md5", null ],
+        [ "Receiver (RX)", "md__r_e_a_d_m_e.html#autotoc_md6", null ],
+        [ "End-to-End LTE sistem", "md__r_e_a_d_m_e.html#autotoc_md7", null ],
+        [ "Testiranje i vizualizacije", "md__r_e_a_d_m_e.html#autotoc_md8", null ]
+      ] ],
+      [ "Struktura projekta", "md__r_e_a_d_m_e.html#autotoc_md10", null ],
+      [ "Trenutno stanje projekta", "md__r_e_a_d_m_e.html#autotoc_md11", null ],
+      [ "Pokretanje projekta", "md__r_e_a_d_m_e.html#autotoc_md12", [
+        [ "Kloniranje repozitorija", "md__r_e_a_d_m_e.html#autotoc_md13", null ],
+        [ "Kreiranje virtualnog okruženja", "md__r_e_a_d_m_e.html#autotoc_md14", null ],
+        [ "Aktivacija virtualnog okruženja:", "md__r_e_a_d_m_e.html#autotoc_md15", null ],
+        [ "Instalacija zavisnosti", "md__r_e_a_d_m_e.html#autotoc_md16", null ]
+      ] ],
+      [ "Testiranje", "md__r_e_a_d_m_e.html#autotoc_md17", null ],
+      [ "Dokumentacija", "md__r_e_a_d_m_e.html#autotoc_md18", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],

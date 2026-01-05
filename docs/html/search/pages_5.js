@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['project_20description_0',['Project Description',['../md__r_e_a_d_m_e.html#autotoc_md1',1,'']]],
-  ['projekta_1',['Opis projekta',['../md__r_e_a_d_m_e.html#autotoc_md4',1,'']]]
+  ['kloniranje_20repozitorija_0',['Kloniranje repozitorija',['../md__r_e_a_d_m_e.html#autotoc_md13',1,'']]],
+  ['kreiranje_20virtualnog_20okruženja_1',['Kreiranje virtualnog okruženja',['../md__r_e_a_d_m_e.html#autotoc_md14',1,'']]]
 ];
