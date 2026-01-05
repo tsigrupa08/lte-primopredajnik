@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['implementira_0',['Šta se implementira',['../md__r_e_a_d_m_e.html#autotoc_md5',1,'']]]
+  ['dokumentacija_0',['Dokumentacija',['../md__r_e_a_d_m_e.html#autotoc_md18',1,'']]]
 ];
