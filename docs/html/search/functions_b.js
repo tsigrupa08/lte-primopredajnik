@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['symbols_5fper_5fsubframe_0',['symbols_per_subframe',['../classtransmitter_1_1_l_t_e_tx_chain_1_1_l_t_e_tx_chain.html#a0b0109fc83d4dcb953d8180626425b9b',1,'transmitter::LTETxChain::LTETxChain']]]
+  ['qpsk_0',['qpsk',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a5ae56155626da870e948a838127a3fe6',1,'transmitter::pbch::PBCHEncoder']]]
 ];

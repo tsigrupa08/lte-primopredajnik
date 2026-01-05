@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['features_0',['Features',['../md__r_e_a_d_m_e.html#autotoc_md3',1,'']]]
+  ['implementira_0',['Šta se implementira',['../md__r_e_a_d_m_e.html#autotoc_md5',1,'']]]
 ];
