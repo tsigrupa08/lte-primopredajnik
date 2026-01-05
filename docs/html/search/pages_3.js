@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['implementira_0',['Šta se implementira',['../md__r_e_a_d_m_e.html#autotoc_md6',1,'']]]
+  ['lte_20transceiver_0',['LTE Transceiver',['../md__r_e_a_d_m_e.html',1,'']]]
 ];

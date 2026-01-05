@@ -117,8 +117,7 @@ None&#160;</td><td class="memItemRight" valign="bottom"><b>setUp</b> (self)</td>
 Public Attributes</h2></td></tr>
 <tr class="memitem:aef518b260bf918a4bbd4f55ef6a31970" id="r_aef518b260bf918a4bbd4f55ef6a31970"><td class="memItemLeft" align="right" valign="top"><a id="aef518b260bf918a4bbd4f55ef6a31970" name="aef518b260bf918a4bbd4f55ef6a31970"></a>
 list&#160;</td><td class="memItemRight" valign="bottom"><b>ndlrb_list</b> = [6, 15, 25, 50, 75, 100]</td></tr>
-<tr class="memitem:ab741f5fa06aecb8b61139f6a31ecd3c9" id="r_ab741f5fa06aecb8b61139f6a31ecd3c9"><td class="memItemLeft" align="right" valign="top"><a id="ab741f5fa06aecb8b61139f6a31ecd3c9" name="ab741f5fa06aecb8b61139f6a31ecd3c9"></a>
-dict&#160;</td><td class="memItemRight" valign="bottom"><b>base_fft_map</b> = {6: 128, 15: 256, 25: 512, 50: 1024, 75: 1408, 100: 1408}</td></tr>
+<tr class="memitem:a315266be2cc96eeb68c9d32b6566d627" id="r_a315266be2cc96eeb68c9d32b6566d627"><td class="memItemLeft" align="right" valign="top">dict&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a315266be2cc96eeb68c9d32b6566d627">expected_fft_map</a></td></tr>
 <tr class="memitem:a4027d5570274fea572132e441d20c13e" id="r_a4027d5570274fea572132e441d20c13e"><td class="memItemLeft" align="right" valign="top"><a id="a4027d5570274fea572132e441d20c13e" name="a4027d5570274fea572132e441d20c13e"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>rng</b> = np.random.default_rng(42)</td></tr>
 </table><table class="memberdecls">
@@ -127,7 +126,11 @@ Protected Member Functions</h2></td></tr>
 <tr class="memitem:a7a5bbe31835538c079337b6b0a961303" id="r_a7a5bbe31835538c079337b6b0a961303"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a7a5bbe31835538c079337b6b0a961303">_random_grid</a> (self, int ndlrb, int num_symbols)</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">Unit testovi za LTE OFDMModulator (NDLRB mapiranje, CP, FFT/CP dimenzije, error handling).
+<div class="textblock"><pre class="fragment">Unit testovi za LTE OFDMModulator:
+- NDLRB -&gt; FFT mapping
+- CP integritet (normal + extended)
+- round-trip (OFDM -&gt; FFT -&gt; rekonstrukcija grida)
+- error handling
 </pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
 <a id="a7a5bbe31835538c079337b6b0a961303" name="a7a5bbe31835538c079337b6b0a961303"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a7a5bbe31835538c079337b6b0a961303">&#9670;&#160;</a></span>_random_grid()</h2>
@@ -160,7 +163,7 @@ Protected Member Functions</h2></td></tr>
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Generiše slučajan kompleksni grid oblika (12*ndlrb, num_symbols).</pre> 
+<pre class="fragment">Slučajan kompleksni grid oblika (12*ndlrb, num_symbols).</pre> 
 </div>
 </div>
 <a id="ac960061106c2318f80cd4ce12567bbae" name="ac960061106c2318f80cd4ce12567bbae"></a>
@@ -248,8 +251,10 @@ Protected Member Functions</h2></td></tr>
 <pre class="fragment">Round-trip: modulacija -&gt; uklanjanje CP -&gt; FFT -&gt; ekstrakcija subcarriera.
 Mora rekonstruisati originalni grid (MSE veoma mali).
 
-Napomena: test je robustan i za varijantu sa ifft ili N*ifft,
-jer automatski bira bolju skalu.
+Test pokriva obje TX varijante:
+- TX radi N*ifft(ifft_input)  -&gt; FFT vraća centred spektar (DC u sredini)
+- TX radi N*ifft(ifftshift(ifft_input)) -&gt; FFT vraća unshifted (DC na index 0),
+  pa je potreban fftshift na RX strani.
 </pre> 
 </div>
 </div>
@@ -285,7 +290,7 @@ jer automatski bira bolju skalu.
       </table>
 </div><div class="memdoc">
 <pre class="fragment">Jedan aktivan podnosioc -&gt; vremenski signal je kompleksni eksponencijal
-(magnituda približno konstantna). Testiramo varijaciju magnitude.
+(magnituda približno konstantna).
 </pre> 
 </div>
 </div>
@@ -337,11 +342,30 @@ jer automatski bira bolju skalu.
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Greška ako broj simbola nije višekratnik 14 (normal) ili 12 (extended).
+<pre class="fragment">Greška ako broj simbola nije višekratnik 14 (normal) ili 12 (extended).</pre> 
+</div>
+</div>
+<a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
+<a id="a315266be2cc96eeb68c9d32b6566d627" name="a315266be2cc96eeb68c9d32b6566d627"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a315266be2cc96eeb68c9d32b6566d627">&#9670;&#160;</a></span>expected_fft_map</h2>
 
-Ako ti ovaj test padne: znači da u OFDMModulator.__init__ treba dodati
-validaciju (kao što si ranije imala u staroj verziji).
-</pre> 
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">dict tests.test_ofdm.TestOFDMModulator.expected_fft_map</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">=  {</div>
+<div class="line">            6: 128,</div>
+<div class="line">            15: 256,</div>
+<div class="line">            25: 512,</div>
+<div class="line">            50: 1024,</div>
+<div class="line">            75: 1536,</div>
+<div class="line">            100: 2048,</div>
+<div class="line">        }</div>
+</div><!-- fragment -->
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>

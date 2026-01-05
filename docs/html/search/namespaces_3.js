@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['transmitter_3a_3altetxchain_0',['LTETxChain',['../namespacetransmitter_1_1_l_t_e_tx_chain.html',1,'transmitter']]],
-  ['transmitter_3a_3apbch_1',['pbch',['../namespacetransmitter_1_1pbch.html',1,'transmitter']]],
-  ['transmitter_3a_3aresource_5fgrid_2',['resource_grid',['../namespacetransmitter_1_1resource__grid.html',1,'transmitter']]],
-  ['transmitter_3a_3arun_5ftx_3',['run_tx',['../namespacetransmitter_1_1run__tx.html',1,'transmitter']]],
-  ['tx_5fchain_5fdemo_4',['tx_chain_demo',['../namespacetx__chain__demo.html',1,'']]]
+  ['receiver_3a_3acrc_5fchecker_0',['crc_checker',['../namespacereceiver_1_1crc__checker.html',1,'receiver']]],
+  ['receiver_3a_3aresource_5fgrid_5fextractor_1',['resource_grid_extractor',['../namespacereceiver_1_1resource__grid__extractor.html',1,'receiver']]],
+  ['rx_5fcfo_5fcorrection_5fdemo_2',['rx_cfo_correction_demo',['../namespacerx__cfo__correction__demo.html',1,'']]],
+  ['rx_5fpss_5fcorrelation_5fdemo_3',['rx_pss_correlation_demo',['../namespacerx__pss__correlation__demo.html',1,'']]]
 ];

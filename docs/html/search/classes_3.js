@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['ofdmmodulator_0',['OFDMModulator',['../classtransmitter_1_1ofdm_1_1_o_f_d_m_modulator.html',1,'transmitter::ofdm']]]
+  ['frequencyoffset_0',['FrequencyOffset',['../classchannel_1_1frequency__offset_1_1_frequency_offset.html',1,'channel::frequency_offset']]]
 ];

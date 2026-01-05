@@ -1,13 +1,9 @@
 var searchData=
 [
-  ['test_5f01_5fsample_5frate_5fcorrectness_0',['test_01_sample_rate_correctness',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#ac960061106c2318f80cd4ce12567bbae',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f02_5fwaveform_5flength_5fnormal_5fcp_1',['test_02_waveform_length_normal_cp',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#a69fd7fd383d4b3d771654fbb4bb5fa13',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f03_5fcp_5fintegrity_5fnormal_2',['test_03_cp_integrity_normal',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#a7703ba4fb94e675fef3455425d44492e',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f04_5fcp_5fintegrity_5fextended_3',['test_04_cp_integrity_extended',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#a977ea0f21e07af05457d76ac72cafa3e',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f05_5fdsp_5froundtrip_5fmse_4',['test_05_dsp_roundtrip_mse',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#a40dec6c0049a59b56f4083fa9c83d437',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f06_5fzero_5finput_5fresponse_5',['test_06_zero_input_response',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#ad66a301011c98cfe861f595d8d734c9e',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f07_5fsingle_5factive_5fsubcarrier_5fconstant_5fenvelope_6',['test_07_single_active_subcarrier_constant_envelope',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#ae37d84a58872b37be62698f113248de9',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f08_5foversampling_5flogic_7',['test_08_oversampling_logic',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#aeaddf55d111c89a5ff54bff05006a639',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f09_5ferror_5finvalid_5fsubcarrier_5fcount_8',['test_09_error_invalid_subcarrier_count',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#aa3a11d4c9a668bf091f6493d1c7acdea',1,'tests::test_ofdm::TestOFDMModulator']]],
-  ['test_5f10_5ferror_5finvalid_5fsymbol_5fcount_9',['test_10_error_invalid_symbol_count',['../classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html#abe59abab0005170e335bde403305bfa0',1,'tests::test_ofdm::TestOFDMModulator']]]
+  ['rand_5fqpsk_0',['rand_qpsk',['../namespacetests_1_1test__pbch__extractor.html#ac94ea3464ed454f13e8a1b602ce6ad4f',1,'tests::test_pbch_extractor']]],
+  ['rate_5fmatch_1',['rate_match',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a22260a8b574668930000274d1c1a87b8',1,'transmitter::pbch::PBCHEncoder']]],
+  ['reset_2',['reset',['../classchannel_1_1frequency__offset_1_1_frequency_offset.html#ae33f1af1fff06b8032ea89c458d03a2d',1,'channel.frequency_offset.FrequencyOffset.reset()'],['../classchannel_1_1lte__channel_1_1_l_t_e_channel.html#aa65a268826f115e73f57f88a924f932f',1,'channel.lte_channel.LTEChannel.reset()'],['../class_l_t_e__system___1_1lte__system_1_1_l_t_e_system.html#aef54bdffaf1a0998d724d6889149c41d',1,'LTE_system_.lte_system.LTESystem.reset()']]],
+  ['rms_3',['rms',['../classreceiver_1_1utils_1_1_rx_utils.html#a3d5b9ea93ec7a211b78ec1cd5b592c80',1,'receiver::utils::RxUtils']]],
+  ['run_4',['run',['../class_l_t_e__system___1_1lte__system_1_1_l_t_e_system.html#a1e4c6a8c6f9c2468f0ff01a624e5e544',1,'LTE_system_::lte_system::LTESystem']]],
+  ['rx_5fderate_5fmajority_5',['rx_derate_majority',['../namespacetests_1_1test__derate__matcher.html#ac207c85ac5be57e5f30aa7a5edf87d46',1,'tests::test_derate_matcher']]]
 ];

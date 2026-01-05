@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['encode_0',['encode',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a6fd66116591e9eb35f362ddb46e3ed37',1,'transmitter::pbch::PBCHEncoder']]],
-  ['encode_5fpbch_5fsymbols_1',['encode_pbch_symbols',['../namespacelte__tx__channel__pipeline.html#a59f901522fcc918b5844bd0eef6e2dc3',1,'lte_tx_channel_pipeline']]]
+  ['db2lin_0',['db2lin',['../classreceiver_1_1utils_1_1_rx_utils.html#a93d2de17ab4f3b73153a126603fc0efe',1,'receiver::utils::RxUtils']]],
+  ['demap_1',['demap',['../classreceiver_1_1_q_p_s_k__demapiranje_1_1_q_p_s_k_demapper.html#ab0430588b3c95fd9ed7ee25b9f3021b8',1,'receiver::QPSK_demapiranje::QPSKDemapper']]],
+  ['demodulate_2',['demodulate',['../classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator.html#a8bbb7dcae1c1da65efe8602b980921b2',1,'receiver::OFDM_demodulator::OFDMDemodulator']]]
 ];

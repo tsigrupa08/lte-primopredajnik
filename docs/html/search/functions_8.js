@@ -1,8 +1,11 @@
 var searchData=
 [
-  ['plot_5fconstellation_0',['plot_constellation',['../namespacelte__tx__channel__pipeline.html#a9d66bffb7cd8145b8a9cbf9feb94396e',1,'lte_tx_channel_pipeline']]],
-  ['plot_5fofdm_5ftime_5fsegment_1',['plot_ofdm_time_segment',['../namespacetx__chain__demo.html#a2df7b0fee2162e4a8b61d688ce7ee526',1,'tx_chain_demo']]],
-  ['plot_5fpbch_5fqpsk_5fconstellation_2',['plot_pbch_qpsk_constellation',['../namespacetx__chain__demo.html#ab5677c78af20dba905c601a1466d9614',1,'tx_chain_demo']]],
-  ['plot_5fresults_3',['plot_results',['../namespacegrid__demo.html#aff577c014b8e2dbe6b3c5ed8ba47c871',1,'grid_demo']]],
-  ['plot_5fwaveforms_4',['plot_waveforms',['../namespacelte__tx__channel__pipeline.html#a5619589b8adb81d02357a2c17ee973b3',1,'lte_tx_channel_pipeline']]]
+  ['main_0',['main',['../namespacepss__demo.html#ae54c91060c99453ad5a34089a69bee98',1,'pss_demo']]],
+  ['make_5fencoder_5fdecoder_1',['make_encoder_decoder',['../namespacetests_1_1test__viterbi__decoder.html#a4c7b63686ca385ea2872ca16cded683b',1,'tests::test_viterbi_decoder']]],
+  ['map_5fpbch_2',['map_pbch',['../classtransmitter_1_1resource__grid_1_1_resource_grid.html#a1a2de8668483fb774a4c84d59b18254d',1,'transmitter::resource_grid::ResourceGrid']]],
+  ['map_5fpbch_5fto_5fgrid_3',['map_pbch_to_grid',['../namespacetransmitter_1_1resource__grid.html#ac23978b7290284169ba6d6d8823afc5c',1,'transmitter::resource_grid']]],
+  ['map_5fpss_4',['map_pss',['../classtransmitter_1_1resource__grid_1_1_resource_grid.html#a976175e74e056ca9756f23fbade4e264',1,'transmitter::resource_grid::ResourceGrid']]],
+  ['map_5fpss_5fto_5fgrid_5',['map_pss_to_grid',['../namespacetransmitter_1_1resource__grid.html#a255a95b074d17a2f03dea711488e1cc4',1,'transmitter::resource_grid']]],
+  ['mean_5fpower_6',['mean_power',['../classreceiver_1_1utils_1_1_rx_utils.html#a8595fe25f25b3cf61bbb9fa99d72e068',1,'receiver::utils::RxUtils']]],
+  ['modulate_7',['modulate',['../classtransmitter_1_1ofdm_1_1_o_f_d_m_modulator.html#ae9bddd1a7a0c45c08a6121e170554fcd',1,'transmitter::ofdm::OFDMModulator']]]
 ];

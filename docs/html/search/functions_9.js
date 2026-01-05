@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['qpsk_0',['qpsk',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a5ae56155626da870e948a838127a3fe6',1,'transmitter::pbch::PBCHEncoder']]]
+  ['normalize_5frms_0',['normalize_rms',['../classreceiver_1_1utils_1_1_rx_utils.html#a41155805f2022d003ffc98dfe2376a13',1,'receiver::utils::RxUtils']]]
 ];

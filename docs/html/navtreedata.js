@@ -26,12 +26,12 @@ var NAVTREE =
 [
   [ "LTE Primopredajnik", "index.html", [
     [ "LTE Transceiver", "md__r_e_a_d_m_e.html", [
-      [ "Project Description", "md__r_e_a_d_m_e.html#autotoc_md2", null ],
-      [ "Features", "md__r_e_a_d_m_e.html#autotoc_md3", null ],
-      [ "Repository Structure", "md__r_e_a_d_m_e.html#autotoc_md4", null ],
-      [ "Opis projekta", "md__r_e_a_d_m_e.html#autotoc_md5", null ],
-      [ "Šta se implementira", "md__r_e_a_d_m_e.html#autotoc_md6", null ],
-      [ "Struktura", "md__r_e_a_d_m_e.html#autotoc_md7", null ]
+      [ "Project Description", "md__r_e_a_d_m_e.html#autotoc_md1", null ],
+      [ "Features", "md__r_e_a_d_m_e.html#autotoc_md2", null ],
+      [ "Repository Structure", "md__r_e_a_d_m_e.html#autotoc_md3", null ],
+      [ "Opis projekta", "md__r_e_a_d_m_e.html#autotoc_md4", null ],
+      [ "Šta se implementira", "md__r_e_a_d_m_e.html#autotoc_md5", null ],
+      [ "Struktura", "md__r_e_a_d_m_e.html#autotoc_md6", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],

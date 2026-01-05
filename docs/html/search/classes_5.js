@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['resourcegrid_0',['ResourceGrid',['../classtransmitter_1_1resource__grid_1_1_resource_grid.html',1,'transmitter::resource_grid']]]
+  ['ofdmdemodulator_0',['OFDMDemodulator',['../classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator.html',1,'receiver::OFDM_demodulator']]],
+  ['ofdmmodulator_1',['OFDMModulator',['../classtransmitter_1_1ofdm_1_1_o_f_d_m_modulator.html',1,'transmitter::ofdm']]]
 ];

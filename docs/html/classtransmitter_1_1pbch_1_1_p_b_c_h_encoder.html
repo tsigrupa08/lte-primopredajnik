@@ -97,7 +97,6 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:afcdbfb235c2065f1652c8d40b806415a" id="r_afcdbfb235c2065f1652c8d40b806415a"><td class="memItemLeft" align="right" valign="top"><a id="afcdbfb235c2065f1652c8d40b806415a" name="afcdbfb235c2065f1652c8d40b806415a"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, bool verbose=True)</td></tr>
 <tr class="memitem:a43110c8dffd62589ed95f270421f1fe3" id="r_a43110c8dffd62589ed95f270421f1fe3"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a43110c8dffd62589ed95f270421f1fe3">crc16</a> (self, Sequence[int] bits)</td></tr>
-<tr class="memitem:a4c57ff21df39b404e0f5f1e23319633b" id="r_a4c57ff21df39b404e0f5f1e23319633b"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4c57ff21df39b404e0f5f1e23319633b">fec_one_third</a> (self, Sequence[int] bits)</td></tr>
 <tr class="memitem:a22260a8b574668930000274d1c1a87b8" id="r_a22260a8b574668930000274d1c1a87b8"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a22260a8b574668930000274d1c1a87b8">rate_match</a> (self, Sequence[int] bits, int E=1920)</td></tr>
 <tr class="memitem:a5ae56155626da870e948a838127a3fe6" id="r_a5ae56155626da870e948a838127a3fe6"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5ae56155626da870e948a838127a3fe6">qpsk</a> (self, Sequence[int] bits)</td></tr>
 <tr class="memitem:a6fd66116591e9eb35f362ddb46e3ed37" id="r_a6fd66116591e9eb35f362ddb46e3ed37"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6fd66116591e9eb35f362ddb46e3ed37">encode</a> (self, Sequence[int] info_bits)</td></tr>
@@ -106,13 +105,14 @@ Public Member Functions</h2></td></tr>
 Public Attributes</h2></td></tr>
 <tr class="memitem:aabb61080272ee8b07be97052f1fa17bd" id="r_aabb61080272ee8b07be97052f1fa17bd"><td class="memItemLeft" align="right" valign="top"><a id="aabb61080272ee8b07be97052f1fa17bd" name="aabb61080272ee8b07be97052f1fa17bd"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>verbose</b> = verbose</td></tr>
+<tr class="memitem:a003c6ec22d6765149545be1da50a5723" id="r_a003c6ec22d6765149545be1da50a5723"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a003c6ec22d6765149545be1da50a5723">fec</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><pre class="fragment">PBCHEncoder: kompletan enkoder za PBCH zadat iz projektne dokumentacije.
 
 Parameters
 ----------
-verbose : bool, optional
+verbose : bool
     Ako je True, ispisuje informacije o svakom koraku enkodiranja.
 </pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
 <a id="a43110c8dffd62589ed95f270421f1fe3" name="a43110c8dffd62589ed95f270421f1fe3"></a>
@@ -133,19 +133,7 @@ verbose : bool, optional
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Izračunava CRC16 remainder (16 bita) nad ulaznim bitovima.
-
-CRC polinom: 0x1021 (CRC-16-IBM)
-
-Parameters
-----------
-bits : Sequence[int]
-    Ulazni bitovi (0/1).
-
-Returns
--------
-numpy.ndarray
-    CRC remainder dužine 16 bitova (np.uint8).
+<pre class="fragment">CRC16 (polinom 0x1021, init 0xFFFF)
 </pre> 
 </div>
 </div>
@@ -169,53 +157,6 @@ numpy.ndarray
 </div><div class="memdoc">
 <pre class="fragment">Kompletan PBCH encoding lanac:
     24 → 40 → 120 → 1920 → 960
-
-Parameters
-----------
-info_bits : Sequence[int]
-    Ulazni informacijski bitovi (24 bita).
-
-Returns
--------
-numpy.ndarray
-    QPSK simboli dužine 960.
-</pre> 
-</div>
-</div>
-<a id="a4c57ff21df39b404e0f5f1e23319633b" name="a4c57ff21df39b404e0f5f1e23319633b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4c57ff21df39b404e0f5f1e23319633b">&#9670;&#160;</a></span>fec_one_third()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"> np.ndarray transmitter.pbch.PBCHEncoder.fec_one_third </td>
-          <td>(</td>
-          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits</em></span>&#160;)</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<pre class="fragment">Jednostavni FEC rate 1/3 encoder:
-- systematic bit,
-- parity1 = b XOR 1,
-- parity2 = b (kopija)
-
-Ovo daje ukupno 3 output bita za svaki input bit.
-
-Parameters
-----------
-bits : Sequence[int]
-    Ulazni bitovi dužine 40.
-
-Returns
--------
-numpy.ndarray
-    Kodirani bitovi dužine 120.
 </pre> 
 </div>
 </div>
@@ -237,26 +178,7 @@ numpy.ndarray
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Gray QPSK mapiranje:
-
-00 → +1 + j1
-01 → +1 - j1
-11 → -1 - j1
-10 → -1 + j1
-
-Pravougaoni mapping:
-    I = 1 - 2*b0
-    Q = 1 - 2*b1
-
-Parameters
-----------
-bits : Sequence[int]
-    Ulažni bitovi dužine 1920.
-
-Returns
--------
-numpy.ndarray
-    QPSK simboli (960 kompleksnih vrijednosti).
+<pre class="fragment">Gray QPSK mapiranje
 </pre> 
 </div>
 </div>
@@ -283,23 +205,30 @@ numpy.ndarray
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Rate matching prema ciljanom broju bitova.
-
-Ako je ulaz kraći od E → ponavlja se (tile).
-Ako je ulaz duži od E → poduzima se linearni sampling.
-
-Parameters
-----------
-bits : Sequence[int]
-    Kodirani bitovi (npr. 120).
-E : int
-    Ciljni broj bitova (1920).
-
-Returns
--------
-numpy.ndarray
-    Rate-matched niz dužine E.
+<pre class="fragment">Rate matching:
+- repeat ako je ulaz kraći
+- subsample ako je duži
 </pre> 
+</div>
+</div>
+<a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
+<a id="a003c6ec22d6765149545be1da50a5723" name="a003c6ec22d6765149545be1da50a5723"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a003c6ec22d6765149545be1da50a5723">&#9670;&#160;</a></span>fec</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">transmitter.pbch.PBCHEncoder.fec</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">=  ConvolutionalEncoder(</div>
+<div class="line">            constraint_len=7,</div>
+<div class="line">            generators_octal=(0o133, 0o171, 0o164),</div>
+<div class="line">            tail_biting=<span class="keyword">False</span>,</div>
+<div class="line">        )</div>
+</div><!-- fragment -->
 </div>
 </div>
 <hr/>The documentation for this class was generated from the following file:<ul>

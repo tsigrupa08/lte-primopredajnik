@@ -1,6 +1,8 @@
 var searchData=
 [
-  ['crc16_0',['crc16',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a43110c8dffd62589ed95f270421f1fe3',1,'transmitter::pbch::PBCHEncoder']]],
-  ['create_5fdemo_5fgrid_1',['create_demo_grid',['../namespacegrid__demo.html#a598888cf6a3a81da3c79c1415a172e4b',1,'grid_demo']]],
-  ['create_5fresource_5fgrid_2',['create_resource_grid',['../namespacetransmitter_1_1resource__grid.html#a75e0af67c519fd70369c1dd48cb22e6c',1,'transmitter::resource_grid']]]
+  ['db2lin_0',['db2lin',['../classreceiver_1_1utils_1_1_rx_utils.html#a93d2de17ab4f3b73153a126603fc0efe',1,'receiver::utils::RxUtils']]],
+  ['demap_1',['demap',['../classreceiver_1_1_q_p_s_k__demapiranje_1_1_q_p_s_k_demapper.html#ab0430588b3c95fd9ed7ee25b9f3021b8',1,'receiver::QPSK_demapiranje::QPSKDemapper']]],
+  ['demodulate_2',['demodulate',['../classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator.html#a8bbb7dcae1c1da65efe8602b980921b2',1,'receiver::OFDM_demodulator::OFDMDemodulator']]],
+  ['deratematcher_3',['DeRateMatcher',['../classreceiver_1_1de__rate__matching_1_1_de_rate_matcher.html',1,'receiver::de_rate_matching']]],
+  ['description_4',['Project Description',['../md__r_e_a_d_m_e.html#autotoc_md1',1,'']]]
 ];

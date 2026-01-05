@@ -99,7 +99,7 @@ Classes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 id="header-var-members" class="groupheader"><a id="var-members" name="var-members"></a>
 Variables</h2></td></tr>
 <tr class="memitem:afa8e138563f5de79169dd185e8b37a3c" id="r_afa8e138563f5de79169dd185e8b37a3c"><td class="memItemLeft" align="right" valign="top"><a id="afa8e138563f5de79169dd185e8b37a3c" name="afa8e138563f5de79169dd185e8b37a3c"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>info</b> = np.random.randint(0, 2, 24)</td></tr>
+&#160;</td><td class="memItemRight" valign="bottom"><b>info</b> = np.random.randint(0, 2, 24, dtype=np.uint8)</td></tr>
 <tr class="memitem:a3593c1f22127482c664096862be04b65" id="r_a3593c1f22127482c664096862be04b65"><td class="memItemLeft" align="right" valign="top"><a id="a3593c1f22127482c664096862be04b65" name="a3593c1f22127482c664096862be04b65"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>enc</b> = <a class="el" href="classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html">PBCHEncoder</a>(verbose=True)</td></tr>
 <tr class="memitem:acfbdcf877ca0fbb700bd4a79805531bd" id="r_acfbdcf877ca0fbb700bd4a79805531bd"><td class="memItemLeft" align="right" valign="top"><a id="acfbdcf877ca0fbb700bd4a79805531bd" name="acfbdcf877ca0fbb700bd4a79805531bd"></a>
@@ -109,26 +109,18 @@ Variables</h2></td></tr>
 <div class="textblock"><pre class="fragment">PBCHEncoder
 ===========
 
-Ova klasa implementira pojednostavljeni PBCH enkoder prema traženoj
-specifikaciji projektne zadaće:
+Pojednostavljeni PBCH enkoder prema projektnoj specifikaciji:
 
     24 → 40 → 120 → 1920 → 960
 
 Gdje je:
 - 24  = informacijski bitovi
 - 40  = informacijski + CRC16
-- 120 = FEC kodirani bitovi (rate 1/3)
+- 120 = FEC kodirani bitovi (rate 1/3, CONVOLUTIONAL)
 - 1920 = nakon rate-matchinga
 - 960 = broj QPSK simbola
 
-Implementirane komponente:
-- CRC16 (polinom 0x1021)
-- FEC rate 1/3 (jednostavan sistematski + 2 pariteta)
-- Rate matching (repeat/prune)
-- QPSK mapiranje (Gray)
-
-Ovo NIJE 3GPP-standardni PBCH, nego pojednostavljena instrukcijska
-implementacija za potrebe projektne vježbe.
+FEC dio je sada kompatibilan sa Viterbi dekoderom u prijemniku.
 </pre> </div></div><!-- contents -->
 </div><!-- doc-content -->
 <div id="page-nav" class="page-nav-panel">
