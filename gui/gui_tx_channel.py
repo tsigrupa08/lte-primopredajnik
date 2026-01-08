@@ -28,9 +28,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
-# ---------------------------------------------------------------------
-# Imports iz vašeg projekta
-# ---------------------------------------------------------------------
 from transmitter.LTETxChain import LTETxChain
 from transmitter.ofdm import OFDMModulator
 from channel.lte_channel import LTEChannel
