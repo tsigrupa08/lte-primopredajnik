@@ -19,13 +19,19 @@ Prikazuju se:
 End-to-end: “od bitova do bitova”
 """
 
-import os
+
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 import sys
+
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 from transmitter.LTETxChain import LTETxChain
 from receiver.LTERxChain import LTERxChain
+from receiver.pss_sync import PSSSynchronizer
 from channel.lte_channel import LTEChannel
 from LTE_system_.lte_system import LTESystem
 
@@ -43,6 +49,8 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 NDLRB = 6
 NUM_SUBFRAMES = 4
 TX_NID2 = 1
+
+FS_HZ = 1.92e6
 
 N_SHOW = 2000      # broj uzoraka za prikaz waveforma
 PSS_ZOOM = 300     # zoom oko detektovanog τ̂
@@ -68,6 +76,14 @@ def add_box(fig, text: str):
     )
 
 
+def normalize_rms(x: np.ndarray, target_rms: float = 1.0) -> np.ndarray:
+    x = np.asarray(x)
+    r = np.sqrt(np.mean(np.abs(x) ** 2))
+    if r < 1e-15:
+        return x
+    return x * (target_rms / r)
+
+
 # =========================================================
 # JEDAN E2E SCENARIJ
 # =========================================================
@@ -88,16 +104,16 @@ def run_case(case_name: str, snr_db: float, cfo_hz: float):
     # CHANNEL
     # -----------------------------------------------------
     channel = LTEChannel(
-        freq_offset_hz=cfo_hz,
-        sample_rate_hz=1.92e6,
-        snr_db=snr_db
+        freq_offset_hz=float(cfo_hz),
+        sample_rate_hz=float(FS_HZ),
+        snr_db=float(snr_db)
     )
 
     # -----------------------------------------------------
     # RX
     # -----------------------------------------------------
     rx = LTERxChain(
-        sample_rate_hz=1.92e6,
+        sample_rate_hz=float(FS_HZ),
         ndlrb=NDLRB,
         normal_cp=True
     )
@@ -113,15 +129,21 @@ def run_case(case_name: str, snr_db: float, cfo_hz: float):
     # Pokretanje end-to-end simulacije
     results = system.run(tx_bits)
 
-    tx_waveform = results["tx_waveform"]
-    rx_waveform = results["rx_waveform"]
-    dbg = results["debug"]
+    tx_waveform = np.asarray(results["tx_waveform"])
+    rx_waveform = np.asarray(results["rx_waveform"])
+    dbg = results.get("debug", {}) or {}
 
     print(f"TX N_ID_2        : {TX_NID2}")
-    print(f"Detected N_ID_2  : {results['detected_nid']}")
-    print(f"Timing τ̂        : {results['tau_hat']}")
-    print(f"CFO_hat (Hz)     : {results['cfo_hat_hz']:.1f}")
-    print(f"CRC OK           : {results['crc_ok']}")
+    print(f"Detected N_ID_2  : {results.get('detected_nid', None)}")
+    print(f"Timing τ̂        : {results.get('tau_hat', None)}")
+
+    cfoh = results.get("cfo_hat_hz", None)
+    if cfoh is None:
+        print("CFO_hat (Hz)     : None")
+    else:
+        print(f"CFO_hat (Hz)     : {float(cfoh):.1f}")
+
+    print(f"CRC OK           : {results.get('crc_ok', False)}")
 
     # =====================================================
     # PANEL 1 – TX waveform
@@ -167,24 +189,39 @@ def run_case(case_name: str, snr_db: float, cfo_hz: float):
 
     # =====================================================
     # PANEL 3 – PSS korelacija + timing
+    # (ne oslanjamo se na debug ključeve, nego ponovo izračunamo korelaciju)
     # =====================================================
-    corr = dbg["pss_corr_metrics"]
-    tau = int(results["tau_hat"])
+    tau_hat = results.get("tau_hat", None)
+    if tau_hat is None:
+        tau_hat = 0
+    tau_hat = int(tau_hat)
 
-    start = max(tau - PSS_ZOOM, 0)
-    end = tau + PSS_ZOOM
+    pss = PSSSynchronizer(sample_rate_hz=float(results["fs_hz"]), ndlrb=NDLRB, normal_cp=True)
+    corr = pss.correlate(normalize_rms(rx_waveform, 1.0))
+    abs_corr = np.abs(corr)
+
+    if abs_corr.ndim == 1:
+        abs_corr = abs_corr.reshape(1, -1)
+
+    Ncorr = abs_corr.shape[1]
+    start = max(tau_hat - PSS_ZOOM, 0)
+    end = min(tau_hat + PSS_ZOOM, Ncorr)
+    tau_local = tau_hat - start  # tačna pozicija τ̂ u lokalnom prozoru
 
     fig = plt.figure(figsize=(12, 4))
     offsets = [0, 1.2, 2.4]
     colors = ["tab:blue", "tab:orange", "tab:green"]
 
-    for i in range(3):
-        c = np.abs(corr[i][start:end])
-        c /= (np.max(c) + 1e-12)
-        y = c + offsets[i]
-        plt.plot(y, color=colors[i], linewidth=2, label=f"N_ID_2={i}")
+    cands = getattr(pss, "n_id_2_candidates", [0, 1, 2])
 
-    plt.axvline(PSS_ZOOM, color="red", linestyle="--", linewidth=2, label="τ̂")
+    for i in range(min(3, abs_corr.shape[0])):
+        c = abs_corr[i, start:end]
+        c = c / (np.max(c) + 1e-12)
+        y = c + offsets[i]
+        lab = f"N_ID_2={cands[i] if i < len(cands) else i}"
+        plt.plot(y, color=colors[i], linewidth=2, label=lab)
+
+    plt.axvline(tau_local, color="red", linestyle="--", linewidth=2, label="τ̂")
     plt.yticks(offsets, ["N_ID_2=0", "N_ID_2=1", "N_ID_2=2"])
     plt.title(f"Panel 3 – PSS korelacija + timing [{case_name}]")
     plt.xlabel("Uzorak (lokalni prozor)")
@@ -204,33 +241,50 @@ def run_case(case_name: str, snr_db: float, cfo_hz: float):
     plt.close()
 
     # =====================================================
-    # PANEL 4 – PBCH bitovi
-    # =====================================================
-    rx_bits = results["mib_bits_rx"]
+# PANEL 4 – PBCH bitovi (MIB) + CRC status
+# =====================================================
+    rx_bits = results.get("mib_bits_rx", None)
+
+    # Ako CRC fail, RX vraća None -> uzmi "mib_hat_24" iz debug-a da možeš vidjeti greške
+    if rx_bits is None:
+        rx_bits = dbg.get("mib_hat_24", None)
+        rx_label = "RX bits (CRC FAIL, mib_hat_24)"
+    else:
+        rx_label = "RX bits (CRC OK)"
+
+    fig = plt.figure(figsize=(12, 4))
+    idx = np.arange(24)
+
+    plt.step(idx, tx_bits[:24], where="post", linewidth=2, label="TX bits")
 
     if rx_bits is not None:
-        M = min(len(tx_bits), len(rx_bits))
-        idx = np.arange(M)
-        errors = tx_bits[:M] != rx_bits[:M]
+        rx_bits = np.asarray(rx_bits, dtype=np.uint8).flatten()[:24]
+        plt.step(idx, rx_bits, where="post", linestyle="--", linewidth=2, label=rx_label)
 
-        fig = plt.figure(figsize=(12, 4))
-        plt.step(idx, tx_bits[:M], where="post", linewidth=2, label="TX bits")
-        plt.step(idx, rx_bits[:M], where="post", linestyle="--", linewidth=2, label="RX bits")
-
+        errors = (tx_bits[:24] != rx_bits)
         if np.any(errors):
-            plt.plot(idx[errors], rx_bits[:M][errors], "rx", label="Greška")
+            plt.plot(idx[errors], rx_bits[errors], "rx", label="Greška (mismatch)")
+    else:
+        plt.text(
+            0.5, 0.5,
+            "RX nije vratio ni mib_hat_24 (decode prekinut ranije).",
+            transform=plt.gca().transAxes,
+            ha="center", va="center",
+            bbox=dict(boxstyle="round", fc="white", alpha=0.9)
+        )
 
-        plt.title(f"Panel 4 – PBCH bits | CRC OK = {results['crc_ok']} [{case_name}]")
-        plt.xlabel("Indeks bita")
-        plt.ylabel("Vrijednost")
-        plt.ylim([-0.2, 1.2])
-        plt.grid(True)
-        plt.legend()
+    plt.title(f"Panel 4 – MIB bits | CRC OK = {results.get('crc_ok', False)} [{case_name}]")
+    plt.xlabel("Indeks bita")
+    plt.ylabel("Vrijednost")
+    plt.ylim([-0.2, 1.2])
+    plt.grid(True)
+    plt.legend()
 
-        add_box(fig, "PBCH dekodiranje (MIB).")
-        plt.tight_layout(rect=[0, 0, 0.68, 1])
-        plt.savefig(f"{SAVE_DIR}/{case_name.lower()}_panel4_pbch.png", dpi=150)
-        plt.close()
+    add_box(fig, "PBCH dekodiranje (MIB).")
+    plt.tight_layout(rect=[0, 0, 0.68, 1])
+    plt.savefig(f"{SAVE_DIR}/{case_name.lower()}_panel4_pbch.png", dpi=150)
+    plt.close()
+
 
 
 # =========================================================

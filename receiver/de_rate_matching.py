@@ -1,109 +1,85 @@
+"""
+de_rate_matching.py
+
+PBCH de-rate matching za tvoj TX:
+
+TX:
+  120 (interleaved) -> repetition -> E (1920 normal CP) / (1728 extended CP)
+
+RX:
+  E -> 120 (interleaved)  [samo sklapanje ponavljanja]
+
+NAPOMENA:
+- OVO vraća 120 *interleaved* kodiranih bitova.
+  Nakon ovoga ti još treba PBCH de-interleaver (inverz od TX sub-block interleavera),
+  pa tek onda Viterbi dekodiranje (rate 1/3, tail-biting).
+- De-rate matching radi smisleno tek nakon descrambling-a (ako je TX imao scrambling).
+"""
+
+from __future__ import annotations
 import numpy as np
 
-class DeRateMatcher:
-    """
-    De-rate matcher za LTE prijemnik.
 
-    Vrši de-rate-matching (akumulaciju) primljenih bitova nakon
-    rate matchinga i vraća ih u originalni raspored prije kodiranja.
+class DeRateMatcherPBCH:
+    def __init__(self, n_coded: int = 120) -> None:
+        self.n_coded = int(n_coded)
+        if self.n_coded <= 0:
+            raise ValueError("n_coded mora biti > 0.")
 
-    Tipično se koristi u PBCH prijemnom lancu nakon QPSK demapiranja
-    i prije Viterbi dekodiranja.
-
-    Atributi
-    --------
-    E_rx : float
-        Energija primljenih bitova (informativni parametar).
-    N_coded : int
-        Broj originalno kodiranih bitova prije rate matchinga.
-
-    Primjeri korištenja
-    ------------------
-    >>> import numpy as np
-    >>> from rx.derate_matcher import DeRateMatcher
-    >>>
-    >>> # Generišemo primljene bitove nakon rate matchinga (0 ili 1)
-    >>> bits_rx = np.random.randint(0, 2, 576)
-    >>> # Kreiramo objekat de-rate matchera sa energijom i brojem kodiranih bitova
-    >>> drm = DeRateMatcher(E_rx=864, N_coded=192)
-    >>> # Vraćamo de-rate-matched bitove (hard decision)
-    >>> out = drm.accumulate(bits_rx, soft=False)
-    >>> out.shape
-    (192,)
-    >>>
-    >>> # --- PRAKTIČAN PRIMJER ---
-    >>> # Simuliramo primljene soft vrijednosti bitova između 0 i 1
-    >>> bits_soft = np.random.rand(576)
-    >>> # Vraćamo soft vrijednosti (prosjek za pozicije koje se ponavljaju)
-    >>> soft_bits = drm.accumulate(bits_soft, soft=True)
-    >>> # Vraćamo hard decision bitove
-    >>> hard_bits = drm.accumulate(bits_soft, soft=False)
-    >>> # Prikaz prvih 10 bitova za provjeru
-    >>> print("Soft bitovi:", soft_bits[:10])
-    >>> print("Hard bitovi:", hard_bits[:10])
-
-    Napomene
-    --------
-    - Ako se ista kodirana pozicija pojavi više puta, vrijednosti
-      se akumuliraju i prosječe (soft kombinacija).
-    - Implementacija je vektorizirana i pogodna za NumPy obradu.
-    """
-
-    def __init__(self, E_rx: float, N_coded: int):
+    def derate_match(self, bits_rx, *, return_soft: bool = False) -> np.ndarray:
         """
-        Inicijalizuje DeRateMatcher objekat.
+        Sklapa E primljenih bitova nazad na n_coded=120.
 
-        Parametri
-        ---------
-        E_rx : float
-            Energija primljenih bitova.
-        N_coded : int
-            Broj originalno kodiranih bitova prije rate matchinga.
+        bits_rx:
+          - očekuje hard bitove 0/1 (np.uint8/int) nakon QPSK demapiranja
+          - može biti i float (npr. 0..1), tada se tretira kao "mekani" dokaz,
+            ali za tvoj projekat je dovoljno da bude 0/1.
+
+        return_soft:
+          - False: vraća hard 0/1 (majority vote)
+          - True : vraća soft vrijednosti (suma dokaza po bitu), korisno ako kasnije želiš soft-Viterbi
         """
-        self.E_rx = E_rx
-        self.N_coded = N_coded
+        x = np.asarray(bits_rx).ravel()
+        if x.size < self.n_coded:
+            raise ValueError(f"Ulaz prekratak: E={x.size}, očekujem bar {self.n_coded} bitova.")
 
-    def accumulate(self, bits_rx, soft: bool = True) -> np.ndarray:
-        """
-        Izvršava de-rate-matching (akumulaciju) primljenih bitova.
+        E = int(x.size)
 
-        Parametri
-        ---------
-        bits_rx : array-like
-            Primljeni bitovi nakon rate matchinga
-            (soft vrijednosti ili 0/1 hard bitovi).
-        soft : bool, opcionalno
-            Ako je True, vraća soft vrijednosti.
-            Ako je False, vraća hard decision bitove (0 ili 1).
+        # Mapiranje indeksa ponavljanja: i -> i % 120
+        idx = np.arange(E, dtype=np.int64) % self.n_coded
 
-        Povratna vrijednost
-        ------------------
-        np.ndarray
-            De-rate-matched niz bitova dužine `N_coded`.
+        # Broj ponavljanja po poziciji (važno za E=1728 gdje prvih 48 ima +1 ponavljanje)
+        counts = np.bincount(idx, minlength=self.n_coded).astype(np.float64)
 
-        Komentari
-        ---------
-        - Pretvara ulaz u NumPy niz tipa float.
-        - Ako se ista pozicija ponavlja, vrijednosti se prosječe (soft).
-        - Hard decision se određuje thresholdom 0.5.
-        """
-        # Pretvaramo ulaz u NumPy niz tipa float
-        bits_rx = np.asarray(bits_rx, dtype=float)
+        # Pretvori hard bitove 0/1 u "dokaz" (+1 za 0, -1 za 1), pa saberi.
+        # (Za normal CP je svejedno sum/avg, ali za extended CP sum čuva veću pouzdanost prvih 48.)
+        if np.issubdtype(x.dtype, np.floating):
+            # Ako dođe float, pretpostavi da je u [0,1] (probabilistički ili “soft bit”),
+            # mapiraj oko 0.5: <0.5 -> +, >0.5 -> -
+            evidence = (0.5 - x.astype(np.float64)) * 2.0
+        else:
+            b = (x.astype(np.int8) & 1)
+            evidence = 1.0 - 2.0 * b  # 0->+1, 1->-1
 
-        # Određujemo pozicije gdje ide svaki primljeni bit
-        indices = np.arange(bits_rx.size) % self.N_coded
+        summed = np.bincount(idx, weights=evidence.astype(np.float64), minlength=self.n_coded)
 
-        # Sabiramo vrijednosti koje idu na istu poziciju
-        weighted_sum = np.bincount(
-            indices, weights=bits_rx, minlength=self.N_coded
-        )
+        if return_soft:
+            # Soft vrijednosti (što je veće pozitivno -> više naginje bitu 0)
+            # Po želji možeš i normalizovati: summed / counts
+            return summed
 
-        # Broj puta koliko je svaki indeks pokriven
-        counts = np.bincount(indices, minlength=self.N_coded)
-        counts[counts == 0] = 1  # Sprečavamo dijeljenje sa nulom
+        # Hard odluka: ako je suma negativna -> više "1" nego "0"
+        out_hard = (summed < 0).astype(np.uint8)
+        return out_hard
 
-        # Soft vrijednosti (prosjek za pozicije koje se ponavljaju)
-        soft_bits = weighted_sum / counts
 
-        # Vraćamo soft ili hard bitove
-        return soft_bits if soft else (soft_bits >= 0.5).astype(int)
+# Brzi sanity test
+if __name__ == "__main__":
+    drm = DeRateMatcherPBCH(n_coded=120)
+
+    # Simuliraj idealno TX ponavljanje (normal CP): 120 -> 1920
+    bits120 = np.random.randint(0, 2, 120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16)
+
+    rec120 = drm.derate_match(bits1920)
+    print("OK:", np.all(rec120 == bits120))

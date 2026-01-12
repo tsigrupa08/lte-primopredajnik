@@ -6,14 +6,6 @@ Ovaj modul implementira pojednostavljeni LTE downlink predajni lanac:
 - MIB (24 bita) -> PBCH enkodiranje -> QPSK simboli
 - Mapiranje PBCH simbola u resource grid
 - OFDM modulacija (IFFT + CP)
-
-Napomena
---------
-Ovaj projekat koristi pojednostavljeni pristup PBCH mapiranju:
-- PBCH enkoder proizvodi 960 QPSK simbola (1920 bita -> 960 QPSK).
-- Ovi 960 simbola se mapiraju kao 4 bloka po 240 simbola kroz 4 subfrejma.
-  (240 simbola po subfrejmu je tipično za PBCH regiju nakon izostavljanja nekih RE,
-   ali ovdje mapiramo sekvencijalno bez CRS maske osim ako je ne proslijediš.)
 """
 
 from __future__ import annotations
@@ -172,7 +164,9 @@ class LTETxChain:
                 raise ValueError("MIB mora imati tačno 24 bita (0/1).")
 
             # Enkoder treba dati 960 QPSK simbola (prema tvojoj projektnoj šemi)
-            encoder = PBCHEncoder(verbose=False)
+            # LTETxChain.py (u generate_waveform, gdje sada imaš encoder = PBCHEncoder(verbose=False))
+            encoder = PBCHEncoder(verbose=False, pci=self.n_id_2, enable_scrambling=True)
+
             pbch_symbols = encoder.encode(bits)
 
             pbch_symbols = np.asarray(pbch_symbols).flatten()
@@ -187,7 +181,7 @@ class LTETxChain:
                 raise ValueError(
                     "Za mapiranje 960 PBCH simbola (4×240) postavi num_subframes >= 4."
                 )
-
+            
             # Mapiranje 4 bloka (240 po subfrejmu)
             for sf in range(4):
                 chunk = pbch_symbols[sf * 240 : (sf + 1) * 240]

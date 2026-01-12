@@ -1,298 +1,260 @@
-"""
-tests/test_derate_matcher.py
-============================
-
-Testovi za DeRateMatcher (RX)
-
-Cilj:
------
-Provjeriti da RX "inverse rate matching" (DeRateMatcher) radi ispravno
-u scenariju gdje TX radi repeat (ponavljanje bitova).
-
-TX logika (iz PBCHEncoder.rate_match):
---------------------------------------
-Ako je ulaz dužine N manji od E, TX pravi:
-    big = tile(bits, reps=ceil(E/N))
-    out = big[:E]
-
-Dakle, svaki originalni bit se pojavi više puta u izlazu.
-RX (DeRateMatcher) treba uraditi "akumulaciju" / majority vote:
-- grupiše ponovljene instance koje pripadaju istom originalnom bitu
-- vrati procjenu originalnih N bitova (0/1)
-
-Implementacija DeRateMatcher u ovom projektu:
---------------------------------------------
-- DeRateMatcher(E_rx, N_coded)
-- accumulate(bits_rx, soft=True/False)
-  * radi average po indeksima modulo N_coded
-  * soft=False radi hard decision preko (soft_bits >= 0.5)
-
-Test strategija:
-----------------
-HAPPY (10 testova):
-- Generiši originalne bitove dužine N
-- TX napravi repeat output dužine E (tile + trunc)
-- Na RX strani namjerno okrenemo mali broj ponovljenih bitova (šum)
-  ali tako da većina i dalje ostane tačna
-- DeRateMatcher treba vratiti originalne bitove
-
-HAPPY (10 testova):
-- Repeat slučaj gdje E nije djeljivo sa N (neke pozicije imaju 3 puta, neke 2 puta)
-- Flipujemo samo u grupama koje imaju >=3 ponavljanja da majority ostane tačna
-
-UNHAPPY (10 testova):
-- "problematični" ulazi
-Napomena: pošto trenutna implementacija nema eksplicitnu validaciju ulaza,
-ne očekujemo uvijek exception; umjesto toga provjeravamo posljedice.
-"""
-
-from __future__ import annotations
-
+import os
+import sys
 import numpy as np
 import pytest
 
-from transmitter.pbch import PBCHEncoder
-from receiver.de_rate_matching import DeRateMatcher
+# ------------------------------------------------------------
+# Ensure project root is on sys.path (radi kad pytest pokreće iz root-a ili drugih foldera)
+# ------------------------------------------------------------
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from receiver.de_rate_matching import DeRateMatcherPBCH
 
 
-# ---------------------------------------------------------------------
-# Pomoćne funkcije
-# ---------------------------------------------------------------------
-
-def tx_repeat_rate_match(bits: np.ndarray, E: int) -> np.ndarray:
+def _repeat_like_tx(bits_coded: np.ndarray, E: int, n_coded: int) -> np.ndarray:
     """
-    TX repeat logika identična PBCHEncoder.rate_match za slučaj N < E.
-
-    Parameters
-    ----------
-    bits : np.ndarray
-        Ulazni bitovi (0/1) dužine N.
-    E : int
-        Ciljna dužina nakon rate-matchinga.
-
-    Returns
-    -------
-    np.ndarray
-        Niz dužine E nakon ponavljanja (tile + trunc).
+    Simulira ponavljanje iz TX (po indeksu i % n_coded), za proizvoljan E:
+      bits_E[i] = bits_coded[i % n_coded]
     """
-    enc = PBCHEncoder(verbose=False)
-    return enc.rate_match(bits, E=E)
+    bits_coded = np.asarray(bits_coded, dtype=np.uint8).ravel()
+    idx = np.arange(E, dtype=np.int64) % int(n_coded)
+    return bits_coded[idx].astype(np.uint8)
 
 
-def rx_derate_majority(rx_bits_E: np.ndarray, N: int) -> np.ndarray:
-    """
-    RX de-rate-match koristeći trenutnu implementaciju:
-    DeRateMatcher(E_rx, N_coded=N).accumulate(rx_bits_E, soft=False)
+# ============================================================
+# 1) INIT / VALIDACIJE
+# ============================================================
 
-    Parameters
-    ----------
-    rx_bits_E : np.ndarray
-        Primljeni bitovi dužine E (ponavljani).
-    N : int
-        Originalna dužina prije rate-matchinga.
-
-    Returns
-    -------
-    np.ndarray
-        Hard decision bitovi dužine N (0/1).
-    """
-    dr = DeRateMatcher(E_rx=1.0, N_coded=N)
-    out = dr.accumulate(rx_bits_E, soft=False)
-    return np.asarray(out, dtype=np.uint8).flatten()
+def test_init_default_ok():
+    drm = DeRateMatcherPBCH()
+    assert drm.n_coded == 120
 
 
-def _flip_some_repeats(repeated_bits: np.ndarray, flip_indices: np.ndarray) -> np.ndarray:
-    """
-    Okreće (flip) bitove na zadatim indeksima: 0->1, 1->0.
-    """
-    y = repeated_bits.copy().astype(np.uint8)
-    if flip_indices.size > 0:
-        y[flip_indices] ^= 1
-    return y
+def test_init_invalid_n_coded_raises():
+    with pytest.raises(ValueError):
+        DeRateMatcherPBCH(n_coded=0)
+    with pytest.raises(ValueError):
+        DeRateMatcherPBCH(n_coded=-7)
 
 
-def _repeat_positions_for_bit(i: int, N: int, E: int) -> np.ndarray:
-    """
-    Vrati sve pozicije u TX tile izlazu (dužine E) gdje se pojavi originalni bit i.
-
-    Za tile + trunc obrazac:
-        out[k] = bits[k % N]
-    => bit i se pojavljuje na indeksima: i, i+N, i+2N, ... < E
-
-    Parameters
-    ----------
-    i : int
-        Indeks originalnog bita (0..N-1)
-    N : int
-        Dužina originalnog niza
-    E : int
-        Dužina nakon rate-matchinga
-
-    Returns
-    -------
-    np.ndarray
-        Indeksi pojavljivanja bita i u TX izlazu.
-    """
-    return np.arange(i, E, N, dtype=int)
+def test_derate_match_requires_min_length():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.zeros(119, dtype=np.uint8)
+    with pytest.raises(ValueError):
+        drm.derate_match(x)
 
 
-# ---------------------------------------------------------------------
-# HAPPY testovi (10) – repeat + majority/akumulacija
-# ---------------------------------------------------------------------
+# ============================================================
+# 2) OSNOVNA SVOJSTVA IZLAZA
+# ============================================================
 
-@pytest.mark.parametrize("seed", range(10))
-def test_deratematcher_happy_repeat_majority(seed: int) -> None:
-    """
-    HAPPY:
-    TX radi repeat (N < E), a RX DeRateMatcher radi majority/akumulaciju.
-
-    U testu ubacujemo mali broj flipova (grešaka) u ponovljenim bitovima,
-    ali tako da većina za svaki originalni bit ostane tačna.
-    """
-    rng = np.random.default_rng(seed)
-
-    N = 40
-    E = 160  # prosječno 4 ponavljanja po bitu
-
-    bits_N = rng.integers(0, 2, size=N, dtype=np.uint8)
-    tx_bits_E = tx_repeat_rate_match(bits_N, E=E).astype(np.uint8)
-
-    # Flipujemo najviše 1 ponavljanje po originalnom bitu
-    flip_idx: list[int] = []
-    for i in range(N):
-        group = _repeat_positions_for_bit(i, N=N, E=E)
-        # sigurno: group ima 4 elementa uN=40,E=160, ali nek bude robustno
-        if group.size > 0 and rng.random() < 0.7:
-            flip_idx.append(int(rng.choice(group)))
-
-    rx_bits_E = _flip_some_repeats(tx_bits_E, np.asarray(flip_idx, dtype=int))
-
-    rec_bits_N = rx_derate_majority(rx_bits_E, N=N)
-
-    assert rec_bits_N.shape == (N,)
-    assert np.array_equal(rec_bits_N, bits_N)
+def test_output_length_is_120_hard():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.random.randint(0, 2, size=1920, dtype=np.uint8)
+    y = drm.derate_match(x, return_soft=False)
+    assert y.shape == (120,)
+    assert y.dtype == np.uint8
 
 
-@pytest.mark.parametrize("seed", range(10))
-def test_deratematcher_happy_repeat_non_divisible(seed: int) -> None:
-    """
-    HAPPY:
-    Repeat slučaj gdje E nije djeljivo sa N.
-
-    Primjer: N=5, E=12:
-      pojavljivanja:
-        i=0 -> idx [0,5,10] (3 puta)
-        i=1 -> idx [1,6,11] (3 puta)
-        i=2 -> idx [2,7]    (2 puta)
-        i=3 -> idx [3,8]    (2 puta)
-        i=4 -> idx [4,9]    (2 puta)
-
-    Flipujemo samo u grupama koje imaju >=3 ponavljanja (da majority ostane tačna).
-    """
-    rng = np.random.default_rng(seed)
-
-    N = 5
-    E = 12
-
-    bits_N = rng.integers(0, 2, size=N, dtype=np.uint8)
-    tx_bits_E = tx_repeat_rate_match(bits_N, E=E).astype(np.uint8)
-
-    flip_idx: list[int] = []
-
-    # Flipujemo najviše 1 u grupama sa >=3 ponavljanja
-    for i in range(N):
-        group = _repeat_positions_for_bit(i, N=N, E=E)
-        if group.size >= 3 and rng.random() < 0.8:
-            flip_idx.append(int(rng.choice(group)))
-
-    rx_bits_E = _flip_some_repeats(tx_bits_E, np.asarray(flip_idx, dtype=int))
-
-    rec_bits_N = rx_derate_majority(rx_bits_E, N=N)
-
-    assert rec_bits_N.shape == (N,)
-    assert np.array_equal(rec_bits_N, bits_N)
+def test_output_length_is_120_soft():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.random.randint(0, 2, size=1920, dtype=np.uint8)
+    y = drm.derate_match(x, return_soft=True)
+    assert y.shape == (120,)
+    assert np.issubdtype(y.dtype, np.floating)
 
 
-# ---------------------------------------------------------------------
-# UNHAPPY testovi (10) – neispravni / problematični ulazi
-# ---------------------------------------------------------------------
+def test_output_bits_are_binary_for_hard():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.random.randint(0, 2, size=1920, dtype=np.uint8)
+    y = drm.derate_match(x, return_soft=False)
+    assert set(np.unique(y)).issubset({0, 1})
 
-@pytest.mark.parametrize("case", range(10))
-def test_deratematcher_unhappy_invalid_inputs(case: int) -> None:
-    """
-    UNHAPPY:
-    10 različitih neispravnih ulaza.
 
-    Napomena: Implementacija DeRateMatcher trenutno nema eksplicitnu validaciju,
-    pa ne očekujemo uvijek exception. Umjesto toga, provjeravamo posljedice.
-    """
-    def call_soft(rx_bits_E, N):
-        dr = DeRateMatcher(E_rx=1.0, N_coded=N)
-        return np.asarray(dr.accumulate(rx_bits_E, soft=True), dtype=float).flatten()
+# ============================================================
+# 3) ROUNDTRIP / IDENTITET
+# ============================================================
 
-    def call_hard(rx_bits_E, N):
-        dr = DeRateMatcher(E_rx=1.0, N_coded=N)
-        return np.asarray(dr.accumulate(rx_bits_E, soft=False), dtype=np.uint8).flatten()
+def test_identity_when_E_equals_120():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    out = drm.derate_match(bits120)
+    np.testing.assert_array_equal(out, bits120)
 
-    if case == 0:
-        # Prazan ulaz: implementacija vrati nule dužine N (nema exception)
-        out = call_soft(np.array([], dtype=np.float32), N=10)
-        assert out.shape == (10,)
-        assert np.all(out == 0.0)
 
-    elif case == 1:
-        # N=0: trenutno može dati warning/Inf/NaN ili exception (zavisno od numpy ponašanja).
-        # Test prihvata oba: ili exception, ili "nevalidan" rezultat.
-        try:
-            out = call_soft(np.ones(10, dtype=np.float32), N=0)
-            # Ako nije bacilo exception, očekujemo da rezultat bude prazan (minlength=0) ili da sadrži NaN/Inf
-            assert out.size == 0 or (np.isnan(out).any() or np.isinf(out).any())
-        except Exception:
-            assert True
+def test_roundtrip_normal_cp_1920_exact_tile_recovers_bits():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16)
+    out = drm.derate_match(bits1920)
+    np.testing.assert_array_equal(out, bits120)
 
-    elif case == 2:
-        # ulaz može biti bilo koje dužine; provjera: radi i vrati dužinu N
-        out = call_hard(np.ones(20, dtype=np.uint8), N=10)
-        assert out.shape == (10,)
-        assert set(np.unique(out)).issubset({0, 1})
 
-    elif case == 3:
-        # rx_bits_E nije 1D -> bincount weights mora biti 1D, očekujemo exception
-        with pytest.raises(Exception):
-            _ = call_soft(np.ones((2, 10), dtype=np.float32), N=10)
+def test_roundtrip_extended_cp_1728_mod_repetition_recovers_bits():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1728 = _repeat_like_tx(bits120, E=1728, n_coded=120)
+    out = drm.derate_match(bits1728)
+    np.testing.assert_array_equal(out, bits120)
 
-    elif case == 4:
-        # float ne-binarno -> hard decision i dalje daje 0/1
-        out = call_hard(np.array([0.1, 0.9, 1.5, -2.0], dtype=np.float32), N=2)
-        assert out.shape == (2,)
-        assert set(np.unique(out)).issubset({0, 1})
 
-    elif case == 5:
-        # NaN -> u soft režimu očekujemo NaN u izlazu (propagacija)
-        out = call_soft(np.array([0.0, 1.0, np.nan, 1.0], dtype=np.float32), N=2)
-        assert out.shape == (2,)
-        assert np.isnan(out).any()
+# ============================================================
+# 4) PONAVLJANJE / COUNTS PROVJERE
+# ============================================================
 
-    elif case == 6:
-        # Inf -> u soft režimu očekujemo Inf u izlazu
-        out = call_soft(np.array([0.0, 1.0, np.inf, 1.0], dtype=np.float32), N=2)
-        assert out.shape == (2,)
-        assert np.isinf(out).any()
+def test_counts_distribution_for_1728_first_48_have_extra_repeat():
+    E = 1728
+    idx = np.arange(E) % 120
+    counts = np.bincount(idx, minlength=120)
+    assert np.all(counts[:48] == 15)
+    assert np.all(counts[48:] == 14)
 
-    elif case == 7:
-        # vrijednosti mimo {0,1} -> soft rezultat može biti >1 (bez validacije)
-        out = call_soft(np.array([0, 1, 2, 1, 0], dtype=np.float32), N=3)
-        assert out.shape == (3,)
-        assert np.max(out) > 1.0
 
-    elif case == 8:
-        # N > E: dio pozicija nema nijedno pojavljivanje -> ostaju 0 (po implementaciji)
-        out = call_hard(np.array([0, 1, 1, 0], dtype=np.uint8), N=10)
-        assert out.shape == (10,)
-        assert np.all(out[4:] == 0)
+def test_soft_magnitude_for_clean_1920_is_16():
+    # Za idealno ponavljanje: abs(soft)=16 na svim pozicijama
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16)
+    soft = drm.derate_match(bits1920, return_soft=True)
+    np.testing.assert_array_equal(np.abs(soft), np.full(120, 16.0))
 
-    elif case == 9:
-        # bilo koja dužina radi i daje dužinu N
-        out = call_hard(np.array([0, 1, 1, 0], dtype=np.uint8), N=2)
-        assert out.shape == (2,)
-        assert set(np.unique(out)).issubset({0, 1})
+
+def test_soft_magnitude_for_clean_1728_is_15_for_first48_else_14():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1728 = _repeat_like_tx(bits120, E=1728, n_coded=120)
+    soft = drm.derate_match(bits1728, return_soft=True)
+    assert np.all(np.abs(soft[:48]) == 15.0)
+    assert np.all(np.abs(soft[48:]) == 14.0)
+
+
+# ============================================================
+# 5) MAJORITY VOTE / ROBUSTNOST NA GREŠKE
+# ============================================================
+
+def test_majority_vote_corrects_sparse_errors_normal_cp():
+    rng = np.random.default_rng(0)
+    drm = DeRateMatcherPBCH(n_coded=120)
+
+    bits120 = rng.integers(0, 2, size=120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16)
+
+    # Flipuj po 1 kopiju za prvih 30 pozicija (16 kopija -> i dalje većina tačna)
+    for j in range(30):
+        k = int(j + 120 * rng.integers(0, 16))
+        bits1920[k] ^= 1
+
+    out = drm.derate_match(bits1920)
+    np.testing.assert_array_equal(out, bits120)
+
+
+def test_hard_decision_matches_soft_sign_rule():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16)
+
+    soft = drm.derate_match(bits1920, return_soft=True)
+    hard = drm.derate_match(bits1920, return_soft=False)
+
+    # soft < 0 -> hard=1, soft > 0 -> hard=0 (na idealnom slučaju nikad 0)
+    np.testing.assert_array_equal(hard, (soft < 0).astype(np.uint8))
+
+
+def test_tie_break_when_summed_zero_outputs_zero():
+    # Napravi E=240 tako da je za svaku poziciju jednom 0 (+1) i jednom 1 (-1) => suma 0
+    drm = DeRateMatcherPBCH(n_coded=120)
+    first = np.zeros(120, dtype=np.uint8)
+    second = np.ones(120, dtype=np.uint8)
+    x = np.concatenate([first, second])  # E=240
+
+    out = drm.derate_match(x, return_soft=False)
+    np.testing.assert_array_equal(out, np.zeros(120, dtype=np.uint8))
+
+
+# ============================================================
+# 6) TIPOVI ULAZA / SHAPE ROBUST
+# ============================================================
+
+def test_accepts_python_list_and_tuple_inputs():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    x = np.tile(bits120, 16)
+
+    out_list = drm.derate_match(x.tolist())
+    out_tuple = drm.derate_match(tuple(x.tolist()))
+    np.testing.assert_array_equal(out_list, bits120)
+    np.testing.assert_array_equal(out_tuple, bits120)
+
+
+def test_accepts_2d_input_is_flattened():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    x = np.tile(bits120, 16).reshape(64, 30)  # 2D shape, ukupno 1920
+    out = drm.derate_match(x)
+    np.testing.assert_array_equal(out, bits120)
+
+
+def test_nonbinary_int_inputs_use_lsb_only():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+    bits1920 = np.tile(bits120, 16).astype(np.int32)
+
+    # 0->2, 1->3 (LSB ostaje 0/1)
+    x = np.where(bits1920 == 0, 2, 3).astype(np.int32)
+    out = drm.derate_match(x, return_soft=False)
+    np.testing.assert_array_equal(out, bits120)
+
+
+# ============================================================
+# 7) FLOAT “SOFT” ULAZI
+# ============================================================
+
+def test_float_inputs_thresholding_behavior_clean():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    bits120 = np.random.randint(0, 2, size=120, dtype=np.uint8)
+
+    x = np.tile(bits120, 16).astype(np.float64)
+    # 0->0.1, 1->0.9 (bez šuma)
+    x = np.where(x == 0.0, 0.1, 0.9)
+
+    out = drm.derate_match(x, return_soft=False)
+    np.testing.assert_array_equal(out, bits120)
+
+
+def test_float_all_0p5_produces_zero_evidence_and_hard_zero():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.full(1920, 0.5, dtype=np.float64)  # evidence=0 svuda -> soft=0 -> hard=0
+    out = drm.derate_match(x, return_soft=False)
+    np.testing.assert_array_equal(out, np.zeros(120, dtype=np.uint8))
+
+
+# ============================================================
+# 8) EKSTREMI / SANITY
+# ============================================================
+
+def test_all_zeros_input_returns_zeros():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.zeros(1920, dtype=np.uint8)
+    out = drm.derate_match(x)
+    np.testing.assert_array_equal(out, np.zeros(120, dtype=np.uint8))
+
+
+def test_all_ones_input_returns_ones():
+    drm = DeRateMatcherPBCH(n_coded=120)
+    x = np.ones(1920, dtype=np.uint8)
+    out = drm.derate_match(x)
+    np.testing.assert_array_equal(out, np.ones(120, dtype=np.uint8))
+
+
+def test_custom_n_coded_roundtrip_general_case():
+    # Provjera da radi i za druge n_coded (nije samo hardcode na 120)
+    n_coded = 10
+    drm = DeRateMatcherPBCH(n_coded=n_coded)
+
+    bits = np.array([0, 1, 1, 0, 1, 0, 0, 1, 0, 1], dtype=np.uint8)
+    E = 25
+    x = _repeat_like_tx(bits, E=E, n_coded=n_coded)
+    out = drm.derate_match(x)
+    np.testing.assert_array_equal(out, bits)
