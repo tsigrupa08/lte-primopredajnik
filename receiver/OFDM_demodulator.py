@@ -1,135 +1,132 @@
+"""
+OFDM_demodulator.py
+
+OFDM demodulator za LTE 1.4 MHz (NDLRB=6, NFFT=128) i generalno za LTE downlink
+(NDLRB ∈ {6, 15, 25, 50, 75, 100}).
+
+Cilj: biti 1:1 kompatibilan sa tvojim TX:
+- OFDMModulator: IFFT + CP + fftshift/ifftshift konvencija
+- resource_grid: oblik (subcarriers, symbols)
+- PBCH/PSS mapiranje radi preko kolona (simbol index)
+
+Ovaj demodulator vraća:
+1) full FFT grid: shape (NFFT, num_symbols)
+2) active LTE subcarriers (bez DC): shape (12*NDLRB, num_symbols)
+"""
+
+from __future__ import annotations
+
 import numpy as np
 
 
 class OFDMDemodulator:
-    """
-    OFDM Demodulator (CP removal + FFT)
+    def __init__(self, ndlrb: int = 6, normal_cp: bool = True):
+        self.ndlrb = int(ndlrb)
+        self.normal_cp = bool(normal_cp)
 
-    Ova klasa prima vremenski OFDM signal (rx_waveform),
-    uklanja ciklički prefiks (CP) i radi FFT po OFDM simbolima,
-    čime dobiva frekvencijski OFDM grid.
+        self.fft_size = self._determine_fft_size(self.ndlrb)
+        self.n_active = 12 * self.ndlrb  # broj aktivnih podnosioca (bez DC)
 
-    Parametri su usklađeni s OFDMModulatorom (LTE-like postavka).
-    """
+        # LTE: 7 simbola/slot za normal CP, 6 za extended CP
+        self.n_symbols_per_slot = 7 if self.normal_cp else 6
 
-    def __init__(self, ndlrb=6, normal_cp=True, new_fft_size=None):
-        """
-        Parametri
-        ----------
-        ndlrb : int
-            Broj downlink resource blockova (npr. 6 → 72 subcarriera)
-        normal_cp : bool
-            True → normal cyclic prefix (LTE normal CP)
-        new_fft_size : int ili None
-            Ako je zadano, ručno postavlja FFT size
-        """
-
-        self.ndlrb = ndlrb
-        self.normal_cp = normal_cp
-
-        # FFT size (ako nije ručno zadan, određuje se iz LTE mape)
-        self.fft_size = (
-            new_fft_size
-            if new_fft_size is not None
-            else self._determine_fft_size(ndlrb)
-        )
-
-        # Broj aktivnih subcarrier-a
-        self.n_subcarriers = 12 * ndlrb
-
-        # Duljine cikličkog prefiksa po OFDM simbolu
         self.cp_lengths = self._determine_cp_lengths()
+        self.sample_rate = 15_000 * self.fft_size  # Fs = NFFT * Δf (Δf=15 kHz)
 
-        # Sample rate (15 kHz spacing × FFT size)
-        self.sample_rate = 15_000 * self.fft_size
-
-    # ==============================================================
-    # PARAMETRI OFDM-a
-    # ==============================================================
-
+    # ------------------------------------------------------------------
+    # Parametri za LTE (osnovne vrijednosti)
+    # ------------------------------------------------------------------
     @staticmethod
-    def _determine_fft_size(ndlrb):
+    def _determine_fft_size(ndlrb: int) -> int:
         """
-        Određuje FFT size prema LTE standardnoj mapi.
+        Odabir FFT veličine tipičan za LTE:
+        1.4 MHz (6 RB)  -> 128
+        3   MHz (15 RB) -> 256
+        5   MHz (25 RB) -> 512
+        10  MHz (50 RB) -> 1024
+        15  MHz (75 RB) -> 1536
+        20  MHz (100RB) -> 2048
         """
-        fft_map = {
+        mapping = {
             6: 128,
             15: 256,
             25: 512,
             50: 1024,
             75: 1536,
             100: 2048,
-
         }
+        if ndlrb not in mapping:
+            raise ValueError(f"Nepodržan NDLRB={ndlrb}. Očekujem jedan od {list(mapping.keys())}.")
+        return mapping[ndlrb]
 
-        if ndlrb not in fft_map:
-            raise ValueError(f"Nepodržan ndlrb = {ndlrb}")
-
-        return fft_map[ndlrb]
-
-    def _determine_cp_lengths(self):
+    def _determine_cp_lengths(self) -> list[int]:
         """
-        Vraća listu duljina CP-a po OFDM simbolu.
+        CP dužine skalirane sa referentnog LTE FFT=2048.
+
+        Normal CP (FFT=2048):
+          - prvi simbol svakog slota: 160
+          - ostali simboli slota:     144
+          - 7 simbola po slotu
+
+        Extended CP (FFT=2048):
+          - svaki simbol slota: 512
+          - 6 simbola po slotu
         """
+        if self.normal_cp:
+            cp_first_ref = 160
+            cp_others_ref = 144
+            cp_first = int(round(self.fft_size * cp_first_ref / 2048))
+            cp_others = int(round(self.fft_size * cp_others_ref / 2048))
+            # 7 simbola/slot
+            return [cp_first] + [cp_others] * 6
+        else:
+            cp_ext_ref = 512
+            cp_ext = int(round(self.fft_size * cp_ext_ref / 2048))
+            # 6 simbola/slot
+            return [cp_ext] * 6
 
-        if not self.normal_cp:
-            raise NotImplementedError("Extended CP nije implementiran")
-
-        # Referentne LTE vrijednosti (za FFT=2048)
-        cp_first_ref = 160
-        cp_others_ref = 144
-
-        # Skaliranje CP duljine prema FFT size
-        cp_first = int(self.fft_size * cp_first_ref / 2048)
-        cp_others = int(self.fft_size * cp_others_ref / 2048)
-
-        # 7 OFDM simbola po slotu
-        return [cp_first] + [cp_others] * 6
-
-    # ==============================================================
-    # OFDM DEMODULACIJA
-    # ==============================================================
-
-    def demodulate(self, rx_waveform):
+    # ------------------------------------------------------------------
+    # Demodulacija
+    # ------------------------------------------------------------------
+    def demodulate(self, rx_waveform: np.ndarray) -> np.ndarray:
         """
-        Demodulira OFDM signal iz vremenske u frekvencijsku domenu.
+        Pretvara vremenski OFDM signal u frekvencijski grid (FFT binovi).
 
-        Parametri
-        ----------
-        rx_waveform : numpy.ndarray (complex)
-            Vremenski OFDM signal s cikličkim prefiksom
+        Ulaz:
+            rx_waveform: kompleksni 1D niz (sa CP)
 
-        Povrat
-        -------
-        grid : numpy.ndarray (complex)
-            OFDM grid dimenzija:
-            [broj_OFDM_simbola, fft_size]
+        Izlaz:
+            grid_full: np.ndarray shape (NFFT, num_symbols)
+                - kolone = OFDM simboli
+                - redovi = FFT binovi (fftshift-ovani, DC je u centru)
         """
+        rx_waveform = np.asarray(rx_waveform)
 
-        # Osiguraj numpy kompleksni tip
-        rx_waveform = np.asarray(rx_waveform, dtype=np.complex64)
+        if rx_waveform.ndim != 1:
+            raise ValueError("rx_waveform mora biti 1D niz (kompleksni uzorci).")
+        if not np.iscomplexobj(rx_waveform):
+            raise ValueError("rx_waveform mora biti kompleksan (I/Q).")
 
         symbols_freq = []
         sample_idx = 0
         symbol_idx = 0
 
-        # Petlja dok god ima dovoljno uzoraka za cijeli OFDM simbol
+        # čitaj simbol po simbol dok ima dovoljno uzoraka
         while True:
-            cp_len = self.cp_lengths[symbol_idx % 7]
+            sym_in_slot = symbol_idx % self.n_symbols_per_slot
+            cp_len = self.cp_lengths[sym_in_slot]
             total_len = cp_len + self.fft_size
 
-            if sample_idx + total_len > len(rx_waveform):
+            if sample_idx + total_len > rx_waveform.size:
                 break
 
-            # 1. CP removal
-            ofdm_symbol_time = rx_waveform[
-                sample_idx + cp_len : sample_idx + total_len
-            ]
+            # ukloni CP
+            ofdm_symbol_time = rx_waveform[sample_idx + cp_len : sample_idx + total_len]
 
-            # 2. FFT
+            # FFT + skala (kompatibilno s TX gdje radi IFFT bez dodatne skale)
             ofdm_symbol_freq = np.fft.fft(ofdm_symbol_time) / self.fft_size
 
-            # 3. FFT shift (DC u sredinu)
+            # centriraj DC u sredinu (kompatibilno s TX fftshift mapiranjem)
             ofdm_symbol_freq = np.fft.fftshift(ofdm_symbol_freq)
 
             symbols_freq.append(ofdm_symbol_freq)
@@ -138,23 +135,57 @@ class OFDMDemodulator:
             symbol_idx += 1
 
         if len(symbols_freq) == 0:
-            raise ValueError("Ulazni signal je prekratak za OFDM demodulaciju")
+            raise ValueError("Ulazni signal je prekratak za OFDM demodulaciju (nema ni jednog simbola).")
 
-        return np.vstack(symbols_freq)
+        # Stack u shape (NFFT, num_symbols)
+        grid_full = np.stack(symbols_freq, axis=1).astype(np.complex128)
+        return grid_full
 
-    # ==============================================================
-    # AKTIVNI SUBCARRIERS
-    # ==============================================================
-    def extract_active_subcarriers(self, grid):
+    def extract_active_subcarriers(self, grid_full: np.ndarray) -> np.ndarray:
+        """
+        Iz full FFT grida (NFFT, Ns) izdvaja aktivne LTE podnosioca (bez DC),
+        i vraća resursni grid u obliku (12*NDLRB, Ns) kompatibilan sa tvojim
+        TX resource_grid i resource_grid_extractor.
+
+        Pretpostavka:
+            grid_full je fftshift-ovan: DC bin je na indexu center = NFFT/2.
+
+        Vraća:
+            grid_active: shape (12*NDLRB, Ns)
+                - prvo negativne frekvencije (ispod DC),
+                  zatim pozitivne (iznad DC), DC se preskače.
+        """
+        grid_full = np.asarray(grid_full)
+        if grid_full.ndim != 2:
+            raise ValueError("grid_full mora biti 2D: shape (NFFT, num_symbols).")
+        if grid_full.shape[0] != self.fft_size:
+            raise ValueError(f"grid_full ima NFFT={grid_full.shape[0]}, očekujem {self.fft_size}.")
+
+        Ns = grid_full.shape[1]
         center = self.fft_size // 2
-        half = self.n_subcarriers // 2  # 36 za ndlrb=6
+        half = self.n_active // 2  # npr. 72/2 = 36
 
-        neg = grid[:, center - half:center]           # 36 negativnih
-        pos = grid[:, center + 1:center + 1 + half]   # 36 pozitivnih (preskoči DC)
+        # Negativni podnosioci: [DC-half .. DC-1]
+        neg = grid_full[center - half : center, :]  # (half, Ns)
 
-        return np.concatenate([neg, pos], axis=1)
+        # Pozitivni podnosioci: [DC+1 .. DC+half] (preskoči DC)
+        pos = grid_full[center + 1 : center + 1 + half, :]  # (half, Ns)
 
-   
+        if neg.shape[0] != half or pos.shape[0] != half:
+            raise ValueError("Ne mogu izdvojiti aktivne podnosioca: provjeri NFFT i NDLRB.")
+
+        grid_active = np.vstack([neg, pos]).astype(np.complex128)  # (12*NDLRB, Ns)
+        return grid_active
+
+
+# ---------------------------------------------------------------------
+# Brzi self-test (opcionalno)
+# ---------------------------------------------------------------------
+if __name__ == "__main__":
+    # Ovo je samo “shape sanity” bez pravog TX signala
+    demod = OFDMDemodulator(ndlrb=6, normal_cp=True)
+    print("NFFT:", demod.fft_size, "Fs:", demod.sample_rate)
+    print("CP lengths per slot:", demod.cp_lengths)
 
 
 # ==============================================================

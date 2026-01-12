@@ -2,98 +2,100 @@
 resource_grid_extractor.py
 ===========================
 
-Ovaj modul implementira jednostavnu ekstrakciju simbola fizičkog kanala za
-emitiranje (PBCH) na strani prijemnika iz LTE resource grid-a u
-frekvencijskom domenu.
+Ekstrakcija PBCH simbola iz LTE resource grid-a (RX strana).
 
-PBCH nosi Master Information Block (MIB) i u downlink-u zauzima centralnih
-šest resource blokova (RB) u prvom podokviru. Za normalni ciklički prefiks
-(CP) podokvir sadrži četrnaest OFDM simbola, a PBCH obuhvata prva četiri
-simbola drugog slota u podokviru 0. Svaki resource blok sadrži dvanaest
-podnosioca, tako da šest centralnih RB-ova zauzima ukupno 72 podnosioca.
+Ovaj extractor je usklađen sa tvojim TX mapiranjem:
+- PBCH se mapira sekvencijalno po frekvenciji unutar centralnih 6 RB (72 subcarrier-a)
+  za svaki PBCH OFDM simbol, preskačući reserved RE ako je maska zadana.
+- TX staje nakon što potroši tačno onoliko simbola koliko je dobio (npr. 240 po subfrejmu).
 
-Pri generisanju predajničkog grida PBCH simboli se mapiraju sekvencijalno
-po frekvenciji za svaki indeks PBCH simbola, preskačući rezervisane RE
-(ako postoje). Na prijemniku se obrnuti postupak svodi na čitanje istih
-RE iz grida istim redoslijedom.
+Zato i RX extractor MORA:
+- preskakati reserved RE na isti način,
+- ali uvijek vratiti TAČNO pbch_symbols_to_extract simbola (npr. 240 ili 960),
+  tj. stati čim ih skupi (bez obzira ima li maske).
 
-Ova implementacija pruža jednostavan invertni maper i pretpostavlja:
-
-* **Normalni ciklički prefiks** – prošireni CP (12 simbola po
-  podokviru) trenutno nije implementiran.
-* **Alokaciju centralnih 6 RB** – PBCH uvijek zauzima šest RB-ova
-  centriranih oko DC podnosioca, bez obzira na ukupnu širinu sistema.
-
-Kada nije zadana eksplicitna maska rezervisanih resource elemenata
-(`reserved_re_mask`), ekstraktor čita sve 72 podnosioca za svaki PBCH
-OFDM simbol i vraća prvih 240 uzoraka.
-
-Ako predajnik preskače određene RE (npr. zbog CRS-a ili drugih kanala),
-istu booleovu masku treba proslijediti metodi `extract` putem argumenta
-`reserved_re_mask`. U tom slučaju ekstraktor će preskočiti RE gdje je
-maska `True` i vratiti sve preostale PBCH RE (bez “hard” limita na 240,
-jer broj zavisi od maske).
+Napomena:
+- Grid očekujemo u obliku (subcarriers, symbols) kao u tvom TX resource_grid.py
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Sequence
 
 import numpy as np
 
 
+def pbch_symbol_indices_for_subframes(
+    num_subframes: int,
+    normal_cp: bool = True,
+    start_subframe: int = 0,
+) -> List[int]:
+    """
+    Helper: napravi globalne OFDM symbol indekse za PBCH kroz više subfrejmova.
+
+    Normal CP: PBCH u subfrejmu s počinje na l = base + [7,8,9,10]
+    Extended CP: PBCH u subfrejmu s počinje na l = base + [6,7,8,9]
+
+    base = (start_subframe + s) * symbols_per_subframe
+    symbols_per_subframe = 14 (normal) ili 12 (extended)
+    """
+    if num_subframes <= 0:
+        raise ValueError("num_subframes mora biti > 0")
+
+    symbols_per_subframe = 14 if normal_cp else 12
+    if normal_cp:
+        local = [7, 8, 9, 10]
+    else:
+        local = [6, 7, 8, 9]
+
+    idx: List[int] = []
+    for sf in range(start_subframe, start_subframe + num_subframes):
+        base = sf * symbols_per_subframe
+        idx.extend([base + l for l in local])
+    return idx
+
+
 @dataclass(frozen=True)
 class PBCHConfig:
-    """Konfiguracija za ekstrakciju PBCH-a.
-
-    Parameters
-    ----------
-    ndlrb : int
-        Broj downlink resource blokova (NDLRB). Za LTE sistem širine
-        1,4 MHz ta vrijednost je 6. PBCH uvijek zauzima centralnih šest
-        RB-ova, neovisno o ukupnoj širini opsega, ali `ndlrb` je potreban
-        da bi se odredila ukupna širina grida.
-    normal_cp : bool
-        True za normalni ciklički prefiks (14 OFDM simbola po podokviru).
-        Prošireni CP trenutno nije implementiran.
-    pbch_symbol_indices : list[int] | None
-        Indeksi OFDM simbola u gridu koji nose PBCH. Ako je None, za normal
-        CP se uzima [7, 8, 9, 10].
-    pbch_symbols_per_subframe : int
-        Broj PBCH QPSK simbola po podokviru u pojednostavljenoj TX shemi.
-        U ovom projektu je to 240.
     """
+    Konfiguracija ekstrakcije.
 
+    ndlrb:
+        Ukupan broj DL RB u gridu (za 1.4 MHz je 6).
+        Koristi se samo za sanity-check; realno se sve može zaključiti iz grid.shape.
+    normal_cp:
+        True -> 14 simbola/subfrejm, False -> 12 simbola/subfrejm.
+    pbch_symbol_indices:
+        Globalni indeksi OFDM simbola (kolone) iz kojih se vadi PBCH.
+        Ako je None:
+            normal_cp -> [7,8,9,10]
+            extended  -> [6,7,8,9]
+    pbch_symbols_to_extract:
+        TAČAN broj PBCH QPSK simbola koji želiš izvući.
+        - za 1 subfrejm (tvoj chunk): 240
+        - za 4 subfrejma (tvoj puni PBCH): 960
+        - za N subfrejmova: 240*N
+    """
     ndlrb: int = 6
     normal_cp: bool = True
     pbch_symbol_indices: Optional[List[int]] = None
-    pbch_symbols_per_subframe: int = 240
+    pbch_symbols_to_extract: int = 240
 
     def __post_init__(self) -> None:
-        if not self.normal_cp:
-            raise NotImplementedError(
-                "Prošireni ciklički prefiks (12 simbola po podokviru) nije implementiran."
-            )
-
         if self.pbch_symbol_indices is None:
-            object.__setattr__(self, "pbch_symbol_indices", [7, 8, 9, 10])
+            if self.normal_cp:
+                object.__setattr__(self, "pbch_symbol_indices", [7, 8, 9, 10])
+            else:
+                object.__setattr__(self, "pbch_symbol_indices", [6, 7, 8, 9])
         else:
             object.__setattr__(self, "pbch_symbol_indices", list(self.pbch_symbol_indices))
 
-        if self.pbch_symbols_per_subframe <= 0:
-            raise ValueError("pbch_symbols_per_subframe mora biti pozitivan cijeli broj.")
+        if self.pbch_symbols_to_extract <= 0:
+            raise ValueError("pbch_symbols_to_extract mora biti pozitivan cijeli broj.")
 
 
 class PBCHExtractor:
-    """Ekstraktor PBCH simbola iz LTE resource grid-a (RX).
-
-    Ekstrakcija prati TX mapiranje:
-    - iterira se po `pbch_symbol_indices`
-    - unutar simbola prolazi se centralnih 6 RB (72 subcarrier-a)
-    - opcionalno se preskaču RE gdje je `reserved_re_mask == True`
-    """
-
     def __init__(self, cfg: Optional[PBCHConfig] = None) -> None:
         self.cfg = cfg or PBCHConfig()
 
@@ -102,66 +104,44 @@ class PBCHExtractor:
         grid: np.ndarray,
         reserved_re_mask: Optional[np.ndarray] = None,
     ) -> np.ndarray:
-        """Ekstrahuje PBCH simbole iz datog resource grida.
-
-        Parameters
-        ----------
-        grid : np.ndarray
-            2D kompleksni resource grid oblika (num_subcarriers, num_symbols),
-            gdje mora važiti num_subcarriers = 12 * NDLRB.
-        reserved_re_mask : np.ndarray | None
-            Booleova maska istih dimenzija kao grid. True znači “rezervisano”
-            i biće preskočeno pri ekstrakciji.
-
-        Returns
-        -------
-        np.ndarray
-            1D niz kompleksnih PBCH simbola.
-            - Ako nema maske: vraća tačno `pbch_symbols_per_subframe` (npr. 240).
-            - Ako maska postoji: vraća sve PBCH RE koji nisu rezervisani.
         """
-        # ---------------- Validacija grida ----------------
+        Ekstrahuje PBCH simbole iz resursnog grida.
+
+        grid: shape (num_subcarriers, num_symbols_total)
+        reserved_re_mask: optional bool maska istog shape-a kao grid.
+                          True znači "rezervisano" (preskoči).
+        """
+        grid = np.asarray(grid)
         if grid.ndim != 2:
-            raise AssertionError(
-                "grid mora biti 2D niz oblika (num_subcarriers, num_symbols)."
-            )
+            raise ValueError("grid mora biti 2D matrica: (subcarriers, symbols).")
 
         num_subcarriers, num_symbols_total = grid.shape
-        expected_subcarriers = 12 * self.cfg.ndlrb
-        if num_subcarriers != expected_subcarriers:
-            raise AssertionError(
-                f"Grid ima {num_subcarriers} subcarrier-a, očekujem {expected_subcarriers} (12×NDLRB)."
-            )
 
-        # PBCH radi na kompleksnim uzorcima; ako dođe realan grid, samo castujemo
-        # (testovi ti trenutno ne traže exception za realan grid).
-        grid = np.asarray(grid)
-
-        # ---------------- Validacija NaN/Inf (popravlja case 5/6) ----------------
-        # np.isfinite radi i za kompleksne nizove (provjerava real+imag).
-        if not np.isfinite(grid).all():
-            raise ValueError("Resource grid sadrži NaN ili Inf vrijednosti.")
-
-        # ---------------- Validacija maske ----------------
-        if reserved_re_mask is not None:
-            reserved_re_mask = np.asarray(reserved_re_mask)
-            if reserved_re_mask.shape != grid.shape:
+        # Sanity-check NDLRB ako user želi (ne mora, ali pomaže)
+        if self.cfg.ndlrb is not None:
+            expected = 12 * int(self.cfg.ndlrb)
+            if expected != num_subcarriers:
+                # Ne rušimo nužno, ali je vrlo vjerovatno greška u spajanju pipeline-a
                 raise ValueError(
-                    f"reserved_re_mask mora imati shape {grid.shape}, a ima {reserved_re_mask.shape}."
+                    f"grid ima {num_subcarriers} subcarrier-a, a cfg.ndlrb={self.cfg.ndlrb} očekuje {expected}."
                 )
-            if reserved_re_mask.dtype != bool:
-                # dopuštamo “truthy” maske, ali ih castujemo u bool
-                reserved_re_mask = reserved_re_mask.astype(bool)
 
-        # ---------------- Izračun centralnih 6 RB ----------------
-        pbch_bandwidth = 72  # 6 RB × 12 subcarrier-a
-        k0 = (num_subcarriers - pbch_bandwidth) // 2
+        if reserved_re_mask is not None:
+            reserved_re_mask = np.asarray(reserved_re_mask).astype(bool)
+            if reserved_re_mask.shape != grid.shape:
+                raise ValueError("reserved_re_mask mora imati isti shape kao grid.")
 
+        # ---------------- Centralnih 6 RB (72 subcarrier-a) ----------------
+        pbch_bandwidth = 72  # 6 RB × 12
+        if num_subcarriers < pbch_bandwidth:
+            raise ValueError("grid nema dovoljno subcarrier-a za centralnih 6 RB (72).")
+
+        k0 = (num_subcarriers - pbch_bandwidth) // 2  # start index centralnog 72-opsega
+
+        symbols_needed = int(self.cfg.pbch_symbols_to_extract)
         extracted: List[complex] = []
-        contiguous = reserved_re_mask is None
-        symbols_needed = self.cfg.pbch_symbols_per_subframe
 
-        # ---------------- Ekstrakcija ----------------
+        # ---------------- Ekstrakcija (isti redoslijed kao TX mapiranje) ----------------
         for symbol_index in self.cfg.pbch_symbol_indices:
             if symbol_index < 0 or symbol_index >= num_symbols_total:
                 raise ValueError(
@@ -178,13 +158,22 @@ class PBCHExtractor:
 
                     extracted.append(grid[sc_index, symbol_index])
 
-                    # Bez maske: kontiguitetno mapiranje i “hard” limit na 240
-                    if contiguous and len(extracted) >= symbols_needed:
+                    # KLJUČNA POPRAVKA: uvijek stani kad skupiš traženi broj simbola
+                    if len(extracted) >= symbols_needed:
                         return np.asarray(extracted, dtype=grid.dtype)
 
-        # Ako nema maske: vrati šta ima, ali ograniči na symbols_needed
-        if contiguous:
-            return np.asarray(extracted[:symbols_needed], dtype=grid.dtype)
+        # Ako nismo uspjeli skupiti dovoljno simbola, to znači da:
+        # - pbch_symbol_indices nisu pokrili dovoljno RE,
+        # - ili reserved_re_mask preskače previše,
+        # - ili grid nije popunjen kako očekujemo.
+        raise ValueError(
+            f"Nije moguće izvući traženih {symbols_needed} PBCH simbola. "
+            f"Izvučeno je {len(extracted)}. Provjeri pbch_symbol_indices / masku / num_subframes."
+        )
 
-        # Ako ima maske: vrati sve što nije rezervisano
-        return np.asarray(extracted, dtype=grid.dtype)
+
+# -------------------------- Brzi primjer upotrebe --------------------------
+if __name__ == "__main__":
+    # primjer: 1.4 MHz, normal CP, 4 subfrejma => 960 simbola
+    # grid = ... (72, 56) ako imaš 4 subfrejma (4*14 simbola)
+    pass

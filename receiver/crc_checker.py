@@ -69,19 +69,14 @@ class CRCChecker:
         bits = np.asarray(bits, dtype=np.uint8).flatten()
 
         reg = self.init
-
         for b in bits:
-            reg ^= (int(b) & 1) << 15
-            for _ in range(8):
-                if reg & 0x8000:
-                    reg = ((reg << 1) ^ self.poly) & 0xFFFF
-                else:
-                    reg = (reg << 1) & 0xFFFF
+            b = int(b) & 1
+            xor = ((reg >> 15) & 1) ^ b
+            reg = ((reg << 1) & 0xFFFF)
+            if xor:
+                reg ^= self.poly
 
-        return np.array(
-            [(reg >> (15 - i)) & 1 for i in range(16)],
-            dtype=np.uint8
-        )
+        return np.array([(reg >> (15 - i)) & 1 for i in range(16)], dtype=np.uint8)
 
     # ------------------------------------------------------------------
     # CRC CHECK
