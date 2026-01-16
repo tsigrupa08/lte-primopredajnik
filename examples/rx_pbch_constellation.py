@@ -39,9 +39,6 @@ def plot_pbch_constellation_rx(
     str
         Apsolutna putanja do spremljene slike.
     """
-    # -----------------------------
-    # Putanja za spremanje (OBAVEZNO: examples/results/rx)
-    # -----------------------------
     project_root = Path(__file__).resolve().parent.parent
     out_dir = project_root / "examples" / "results" / "rx"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -56,15 +53,9 @@ def plot_pbch_constellation_rx(
             out_file = out_path
             out_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # -----------------------------
-    # Ulazni simboli
-    # -----------------------------
     x = np.asarray(pbch_symbols, dtype=np.complex128).ravel()
-    x = x[x != (0.0 + 0.0j)]  # izbaci nule ako postoje
+    x = x[x != (0.0 + 0.0j)]
 
-    # -----------------------------
-    # Plot
-    # -----------------------------
     fig, ax = plt.subplots(figsize=(6.6, 6.6))
 
     ax.scatter(
@@ -76,13 +67,8 @@ def plot_pbch_constellation_rx(
         label=f"PBCH RX simboli (N={x.size})",
     )
 
-    # Idealne QPSK tačke (prazni krugovi)
     if show_ideal_qpsk:
-        ideal = np.array(
-            [1 + 1j, 1 - 1j, -1 - 1j, -1 + 1j],
-            dtype=np.complex128,
-        ) / np.sqrt(2.0)
-
+        ideal = np.array([1 + 1j, 1 - 1j, -1 - 1j, -1 + 1j], dtype=np.complex128) / np.sqrt(2.0)
         ax.scatter(
             ideal.real,
             ideal.imag,
@@ -93,20 +79,14 @@ def plot_pbch_constellation_rx(
             label="Idealne QPSK tačke",
         )
 
-    # -----------------------------
-    # Stil
-    # -----------------------------
     ax.set_title(title)
     ax.set_xlabel("I komponenta (realni dio)")
     ax.set_ylabel("Q komponenta (imaginarni dio)")
     ax.grid(True, linestyle="--", alpha=0.6)
     ax.set_aspect("equal", adjustable="box")
-
-    # Zum oko idealnih tačaka
     ax.set_xlim([-1.25, 1.25])
     ax.set_ylim([-1.25, 1.25])
 
-    # Diskretna info-kutija (bez strelica)
     ax.text(
         0.02,
         0.98,
@@ -120,9 +100,6 @@ def plot_pbch_constellation_rx(
 
     ax.legend(loc="upper right")
 
-    # -----------------------------
-    # Spremanje
-    # -----------------------------
     fig.tight_layout()
     fig.savefig(out_file, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
@@ -130,72 +107,36 @@ def plot_pbch_constellation_rx(
     return str(out_file.resolve())
 
 
-def _awgn(x: np.ndarray, snr_db: float, rng: np.random.Generator) -> np.ndarray:
+def _extract_pbch_symbols_from_rx_waveform(
+    rx_waveform: np.ndarray,
+    *,
+    ndlrb: int,
+    normal_cp: bool,
+) -> np.ndarray:
     """
-    Dodaje AWGN na kompleksni signal za zadani SNR (dB), po snazi signala.
+    OFDM demod + PBCHExtractor: vrati PBCH simbole (prije demapiranja).
 
     Parameters
     ----------
-    x : np.ndarray
-        Ulazni kompleksni signal.
-    snr_db : float
-        Signal-to-noise ratio u dB.
-    rng : np.random.Generator
-        Generator za šum.
+    rx_waveform : np.ndarray
+        Primljeni kompleksni OFDM waveform (nakon kanala).
+    ndlrb : int
+        Broj downlink RB.
+    normal_cp : bool
+        Normal CP ili extended.
 
     Returns
     -------
     np.ndarray
-        Signal sa dodanim AWGN šumom.
+        Kompleksni PBCH simboli, shape (960,).
     """
-    x = np.asarray(x)
-    p_sig = np.mean(np.abs(x) ** 2)
-    snr_lin = 10.0 ** (snr_db / 10.0)
-    p_noise = p_sig / snr_lin
-    n = (rng.standard_normal(x.shape) + 1j * rng.standard_normal(x.shape)) * np.sqrt(p_noise / 2.0)
-    return x + n
-
-
-if __name__ == "__main__":
-    # ==========================================================
-    # LTE SYSTEM-BASED (NE GENERIČKI):
-    #   LTETxChain -> AWGN -> OFDM demod -> PBCHExtractor -> plot
-    # ==========================================================
-    #
-    # Pokreni iz ROOT foldera projekta:
-    #   python -m examples.rx_pbch_constellation
-    #
-
-    from transmitter.LTETxChain import LTETxChain
     from receiver.OFDM_demodulator import OFDMDemodulator
-    from receiver.resource_grid_extractor import (
-        PBCHConfig,
-        PBCHExtractor,
-        pbch_symbol_indices_for_subframes,
-    )
+    from receiver.resource_grid_extractor import PBCHConfig, PBCHExtractor, pbch_symbol_indices_for_subframes
 
-    rng = np.random.default_rng(0)
-
-    # LTE parametri (kao u projektu)
-    ndlrb = 6
-    normal_cp = True
-    pci = 0
-
-    # TX mora imati >= 4 subfrejma da mapira 960 PBCH simbola (4×240)
-    tx = LTETxChain(n_id_2=pci, ndlrb=ndlrb, num_subframes=4, normal_cp=normal_cp)
-    mib_bits = rng.integers(0, 2, size=24, dtype=np.uint8)
-    tx_waveform, fs = tx.generate_waveform(mib_bits=mib_bits)
-
-    # Channel: AWGN (da se vidi oblak)
-    snr_db = 20.0
-    rx_waveform = _awgn(tx_waveform, snr_db=snr_db, rng=rng)
-
-    # RX: OFDM demod + aktivni subcarriers (72)
     ofdm = OFDMDemodulator(ndlrb=ndlrb, normal_cp=normal_cp)
     grid_full = ofdm.demodulate(rx_waveform)
     grid_active = ofdm.extract_active_subcarriers(grid_full)
 
-    # PBCH extraction: 240 po subfrejmu × 4 subfrejma = 960 simbola
     pbch_syms_parts = []
     for sf in range(4):
         idx_sf = pbch_symbol_indices_for_subframes(
@@ -211,12 +152,71 @@ if __name__ == "__main__":
         )
         pbch_syms_parts.append(PBCHExtractor(cfg_sf).extract(grid_active))
 
-    pbch_syms = np.concatenate(pbch_syms_parts)  # (960,)
+    return np.concatenate(pbch_syms_parts)  # (960,)
 
-    # Plot + save (OBAVEZNO u examples/results/rx)
-    out = plot_pbch_constellation_rx(
-        pbch_syms,
-        out_path="pbch_constellation_rx.png",
-        show_ideal_qpsk=True,
+
+if __name__ == "__main__":
+    # ==========================================================
+    # LTE SYSTEM-BASED + VAŠ KANAL:
+    #   LTETxChain -> LTEChannel(freq_offset + awgn) -> RX extract -> 2 plota
+    # ==========================================================
+    #
+    # Pokreni iz ROOT foldera:
+    #   python -m examples.rx_pbch_constellation
+    #
+
+    from transmitter.LTETxChain import LTETxChain
+    from channel.lte_channel import LTEChannel
+
+    rng = np.random.default_rng(0)
+
+    # LTE parametri
+    ndlrb = 6
+    normal_cp = True
+    pci = 0
+
+    # TX mora imati 4 subfrejma (960 PBCH simbola)
+    tx = LTETxChain(n_id_2=pci, ndlrb=ndlrb, num_subframes=4, normal_cp=normal_cp)
+    mib_bits = rng.integers(0, 2, size=24, dtype=np.uint8)
+    tx_waveform, fs = tx.generate_waveform(mib_bits=mib_bits)
+
+    # --------------------------
+    # Scenario 1: dobar kanal
+    # --------------------------
+    ch1 = LTEChannel(
+        freq_offset_hz=0.0,
+        sample_rate_hz=fs,
+        snr_db=20.0,
+        seed=1,
     )
-    print("Spremljeno:", out)
+    rx1 = ch1.apply(tx_waveform)
+    pbch1 = _extract_pbch_symbols_from_rx_waveform(rx1, ndlrb=ndlrb, normal_cp=normal_cp)
+
+    out1 = plot_pbch_constellation_rx(
+        pbch1,
+        out_path="pbch_constellation_rx_snr20_cfo0.png",
+        show_ideal_qpsk=True,
+        title="RX-only: PBCH konstelacija (SNR=20 dB, CFO=0 Hz)",
+    )
+    print("Spremljeno:", out1)
+
+    # --------------------------
+    # Scenario 2: lošiji kanal
+    # --------------------------
+    # CFO izabran da se vidi rotacija/rasipanje 
+    ch2 = LTEChannel(
+        freq_offset_hz=500.0,
+        sample_rate_hz=fs,
+        snr_db=8.0,
+        seed=2,
+    )
+    rx2 = ch2.apply(tx_waveform)
+    pbch2 = _extract_pbch_symbols_from_rx_waveform(rx2, ndlrb=ndlrb, normal_cp=normal_cp)
+
+    out2 = plot_pbch_constellation_rx(
+        pbch2,
+        out_path="pbch_constellation_rx_snr8_cfo500.png",
+        show_ideal_qpsk=True,
+        title="RX-only: PBCH konstelacija (SNR=8 dB, CFO=500 Hz)",
+    )
+    print("Spremljeno:", out2)
