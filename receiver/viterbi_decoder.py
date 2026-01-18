@@ -5,10 +5,37 @@ class ViterbiDecoder:
     """
     Hard-decision Viterbi dekoder za konvolucijske kodove.
 
+    Ova klasa implementira Viterbi algoritam za dekodiranje konvolucijski
+    kodiranih bitova sa hard-odlukom (0/1). Posebno je prilagođena LTE PBCH
+    lancu gdje se koristi **tail-biting** konvolucijsko kodiranje.
+
     LTE PBCH napomena:
-    - TX koristi tail-biting (nema flush bitova), pa dekoder mora podržati tail-biting.
-    - U tail-biting režimu start_state je nepoznat; traži se start_state koji minimizira
-      metriku uz uslov end_state == start_state.
+    - Predajnik koristi tail-biting (nema flush bitova).
+    - Početno stanje nije poznato unaprijed.
+    - Dekoder traži start_state za koji važi: end_state == start_state
+      uz minimalnu putnu metriku.
+
+    Parameters
+    ----------
+    constraint_len : int
+        Dužina ograničenja konvolucijskog koda (K).
+    generators : list of int
+        Generator polinomi konvolucijskog koda (npr. [0o133, 0o171, 0o165]).
+    rate : float, default=1/2
+        Kodna stopa (informativno, ne utiče direktno na algoritam).
+
+    Attributes
+    ----------
+    K : int
+        Dužina ograničenja konvolucijskog koda.
+    generators : list of int
+        Generator polinomi.
+    rate : float
+        Kodna stopa.
+    n_out : int
+        Broj izlaznih bitova po ulaznom bitu.
+    num_states : int
+        Ukupan broj stanja trellisa (2^(K-1)).
     """
 
     def __init__(self, constraint_len, generators, rate=1 / 2):
@@ -28,6 +55,13 @@ class ViterbiDecoder:
         self._build_trellis()
 
     def _build_trellis(self):
+        """
+        Izgrađuje trellis strukturu (prelazi stanja i izlazni bitovi).
+
+        Metoda popunjava:
+        - next_state[state, bit]
+        - output_bits[state, bit, :]
+        """
         self.next_state = np.zeros((self.num_states, 2), dtype=np.int32)
         self.output_bits = np.zeros((self.num_states, 2, self.n_out), dtype=np.int8)
 
@@ -42,8 +76,23 @@ class ViterbiDecoder:
 
     def _run_viterbi(self, rcv: np.ndarray, start_state: int):
         """
-        Jedan Viterbi run sa fiksnim start_state.
-        Vraća: (path, prev_state, prev_bit)
+        Izvršava jedan Viterbi algoritam za fiksno početno stanje.
+
+        Parameters
+        ----------
+        rcv : numpy.ndarray
+            Primljeni kodirani bitovi oblika (T, n_out).
+        start_state : int
+            Početno stanje trellisa.
+
+        Returns
+        -------
+        path : numpy.ndarray
+            Matrica putnih metrika dimenzija (T+1, num_states).
+        prev_state : numpy.ndarray
+            Prethodna stanja za backtracking.
+        prev_bit : numpy.ndarray
+            Prethodni ulazni bitovi za backtracking.
         """
         T = rcv.shape[0]
 

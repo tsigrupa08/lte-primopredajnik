@@ -51,17 +51,51 @@ class RxResult:
 # =======================================================
 class LTERxChain:
     """
-    LTE RX chain usklađen s tvojim TX (LTETxChain):
-      - PSS detekcija (korelacija) -> tau_hat i N_ID_2_hat
-      - (opc.) CFO procjena + korekcija
-      - OFDM demodulacija (FFT + CP uklanjanje)
-      - Ekstrakcija PBCH RE (240 po subfrejmu) kroz 4 subfrejma => 960 QPSK simbola
-      - QPSK hard demap => 1920 bitova
-      - descramble (Gold, c_init = PCI)
-      - de-rate matching => 120 interleaved bitova
-      - PBCH deinterleave (inverz TX sub-block interleavera) => 120 coded bitova
-      - Viterbi tail-biting decode => 40 bitova (24 payload + 16 CRC)
-      - CRC check => 24 MIB bita
+    LTE prijemni lanac (RX) za PBCH/MIB dekodiranje.
+
+    Klasa implementira kompletan LTE PHY prijemni tok usklađen s odgovarajućim
+    predajnikom (LTETxChain). Obuhvata PSS sinhronizaciju, OFDM demodulaciju,
+    PBCH ekstrakciju i dekodiranje, te CRC provjeru ispravnosti prijema.
+
+    RX tok obrade:
+    - PSS korelacija i detekcija (N_ID_2, vremenski pomak)
+    - Opciona procjena i korekcija frekvencijskog ofseta (CFO)
+    - OFDM demodulacija (uklanjanje CP i FFT)
+    - Ekstrakcija PBCH resursnih elemenata kroz 4 subfrejma
+    - QPSK demapiranje
+    - Descrambling (Gold sekvenca)
+    - De-rate matching i deinterleaving
+    - Viterbi dekodiranje (tail-biting)
+    - CRC provjera i rekonstrukcija MIB bita
+
+    Parameters
+    ----------
+    sample_rate_hz : float, optional
+        Frekvencija uzorkovanja ulaznog signala u Hz. Ako nije zadana,
+        automatski se određuje iz OFDM parametara.
+    ndlrb : int, default=6
+        Broj downlink resource blockova (LTE bandwidth konfiguracija).
+    normal_cp : bool, default=True
+        Korištenje normalnog cikličkog prefiksa.
+    pci : int, default=0
+        Physical Cell ID (PCI). Tokom dekodiranja se ažurira na osnovu PSS-a.
+    pbch_spread_subframes : int, default=4
+        Broj subfrejmova preko kojih je PBCH raspoređen.
+    enable_cfo_correction : bool, default=True
+        Omogućava procjenu i korekciju CFO-a.
+    enable_descrambling : bool, default=True
+        Omogućava descrambling PBCH bitova.
+    normalize_before_pss : bool, default=True
+        Normalizacija RMS vrijednosti prije PSS korelacije.
+    pss_window_samples : int, optional
+        Veličina prozora (u uzorcima) za PSS pretragu.
+    cfo_limit_hz : float, default=3000.0
+        Maksimalna dozvoljena vrijednost CFO-a (Hz).
+
+    Notes
+    -----
+    Implementacija je namijenjena edukativnoj i istraživačkoj upotrebi
+    i prati 3GPP LTE PHY specifikaciju za PBCH prijem.
     """
 
     # TX permutacija kolona (ista kao u transmitter/pbch.py)
@@ -263,6 +297,19 @@ class LTERxChain:
     # Glavna funkcija: RX decode
     # =======================================================
     def decode(self, rx_waveform: np.ndarray) -> RxResult:
+        """ Dekodira PBCH/MIB informacije iz primljenog LTE signala.
+
+        Parameters
+        ----------
+        rx_waveform : numpy.ndarray
+            Kompleksni vremenski LTE signal (1D niz).
+
+        Returns
+        -------
+        RxResult
+            Struktura koja sadrži dekodirane MIB bitove, CRC status,
+            procijenjene sinhronizacione parametre i debug informacije.
+        """
         dbg: Dict[str, Any] = {}
 
         # 1) Validacija / shape
