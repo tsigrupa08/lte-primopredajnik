@@ -49,7 +49,7 @@ telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.
 - `examples/` – Primjeri korištenja i demonstracione skripte  
 - `gui/` – Grafički interfejs za vizualizaciju i interaktivno pokretanje  
 - `docs/` – Tehnička dokumentacija i reference
-- 
+
 ## Tok obrade signala (workflow)
 
 1. Generisanje PBCH/MIB informacija  
@@ -66,16 +66,18 @@ telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.
 
 ## Trenutno stanje projekta
 
-Projekat je u funkcionalnoj fazi i implementiran je kompletan osnovni LTE lanac za simulaciju komunikacije.
+Projekat je u potpunosti završen i predstavlja kompletno implementiran LTE primopredajni sistem za simulaciju digitalne komunikacije u osnovnom opsegu.
+- Implementiran je predajnik (TX) koji obuhvata generisanje PSS sekvenci, PBCH kodiranje, mapiranje simbola i OFDM modulaciju u skladu sa osnovnim LTE principima.
+- Implementiran je kanal prenosa, uključujući dodavanje AWGN šuma i modeliranje frekvencijskog ofseta (Carrier Frequency Offset – CFO), čime su obuhvaćeni ključni degradirajući efekti realnog bežičnog kanala.
+- Implementiran je potpuno funkcionalan prijemnik (RX) koji uključuje:
+1. PSS baziranu vremensku i frekvencijsku sinhronizaciju,
+2. OFDM demodulaciju,
+3. ekstrakciju PBCH simbola iz primljenog resursnog grida, demapiranje, dekodiranje i CRC provjeru PBCH informacije.
 
-- Implementiran je predajnik (TX) sa generisanjem PSS sekvenci, PBCH kodiranjem i OFDM modulacijom.
-- Implementiran je kanal sa AWGN šumom i frekvencijskim ofsetom (CFO).
-- Implementiran je prijemnik (RX) koji obuhvata PSS sinhronizaciju, OFDM demodulaciju, ekstrakciju PBCH simbola, demapiranje, dekodiranje i CRC provjeru.
-- Omogućeno je end-to-end testiranje kompletnog sistema (TX → Channel → RX).
-- Razvijeni su unit testovi i end-to-end testovi za validaciju funkcionalnosti.
-- Dostupne su vizualizacije ključnih faza sistema (PSS korelacija, RX grid, konstelacije i prijem bitova).
+Omogućeno je end-to-end testiranje kompletnog LTE sistema (TX → Channel → RX), pri čemu se potvrđuje ispravna rekonstrukcija prenesenih informacija na prijemu.
+Razvijen je sveobuhvatan skup unit testova i end-to-end testova koji validiraju ispravnost pojedinačnih modula, kao i ukupnu funkcionalnost sistema.
+Dostupne su vizualizacije ključnih faza prijema i obrade signala, uključujući PSS korelaciju, prijemni resursni grid, konstelacione dijagrame i rekonstrukciju primljenih bitova, što omogućava detaljnu analizu ponašanja sistema.
 
-Projekat je spreman za dalje proširenje, optimizaciju i analizu performansi.
 
 ## Pokretanje projekta
 
