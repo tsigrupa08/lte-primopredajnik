@@ -87,8 +87,12 @@ Dostupne su vizualizacije ključnih faza prijema i obrade signala, uključujući
 - cd lte-primopredajnik
 
 ### Kreiranje virtualnog okruženja
+Radi izolacije zavisnosti projekta i osiguranja reproduktivnog okruženja za razvoj i testiranje, preporučuje se korištenje Python virtualnog okruženja.
 
-- python -m venv .venv
+Virtualno okruženje omogućava:
+- odvajanje projektnih zavisnosti od sistemskog Python-a
+- izbjegavanje konflikata između verzija biblioteka
+- jednostavno pokretanje projekta na različitim računarima i operativnim sistemima
 
 ### Aktivacija virtualnog okruženja:
 
@@ -99,15 +103,53 @@ source .venv/bin/activate
 .venv\Scripts\activate
 
 ### Instalacija zavisnosti
+Nakon kreiranja i aktivacije virtualnog okruženja, potrebno je instalirati sve Python biblioteke koje projekat koristi. Spisak zavisnosti definisan je u fajlu
+equirements.txt.
 
-- pip install -r requirements.txt
+pip install -r requirements.txt
+  
+## Pokretanje GUI aplikacije
+
+GUI aplikacija omogućava interaktivno pokretanje LTE TX → Channel → RX lanca uz grafički prikaz ključnih faza obrade signala.
+
+- python gui/gui_tx_channel.py
+
+Prije pokretanja GUI aplikacije potrebno je aktivirati virtualno okruženje u kojem su instalirane sve zavisnosti projekta.
 
 ## Testiranje
 
-Testovi koriste pytest i pokreću se iz terminala naredbom 'pytest'.
+pytest` okvira i obuhvata provjeru
+ispravnosti pojedinačnih LTE blokova, kao i kompletnog end-to-end sistema.
+
+### Vrste testova
+**Unit testovi**
+  - provjera funkcionalnosti pojedinačnih blokova (TX, Channel, RX)
+  - testiranje PSS generisanja i detekcije
+  - testiranje PBCH kodiranja i dekodiranja
+  - validacija OFDM modulacije i demodulacije
+  - CRC provjera ispravnosti prijema
+
+**End-to-end testovi**
+  - testiranje kompletnog LTE lanca (TX → Channel → RX)
+  - provjera ispravnosti dekodiranih PBCH/MIB informacija
+  - evaluacija grešaka u prisustvu šuma i frekvencijskog ofseta
+
+Testovi obuhvataju i **ispravne (happy)** i **neispravne (unhappy)** scenarije, uključujući pogrešnu sinhronizaciju, prisustvo šuma i greške u prijemu.
+
+### Pokretanje testova
+
+Pokretanje svih testova iz korijenskog direktorija projekta:
+- pytest
 
 ## Dokumentacija
 
 Automatski generisana tehnička dokumentacija (Doxygen): [docs/html/index.html](https://tsigrupa08.github.io/lte-primopredajnik/html/).
 
+## Zaključak
+U okviru ovog projekta realizovan je kompletan LTE primopredajni sistem, koji obuhvata sve ključne faze digitalne bežične komunikacije – od generisanja signala na predaji, preko modeliranja kanala, do pouzdane rekonstrukcije informacija na prijemu.
 
+Implementacijom predajnika, kanala i u potpunosti funkcionalnog prijemnika omogućena je end-to-end simulacija LTE komunikacionog lanca, čime je potvrđena ispravnost međusobne interakcije svih podsistema. Poseban akcenat stavljen je na proces sinhronizacije i dekodiranja na prijemu, koji predstavlja jednu od najzahtjevnijih faza LTE sistema.
+
+Razvijeni unit testovi i end-to-end testovi dodatno potvrđuju stabilnost i tačnost implementacije, dok dostupne vizualizacije omogućavaju detaljnu analizu ponašanja sistema i olakšavaju razumijevanje pojedinih faza obrade signala.
+
+Ovim projektom demonstrirana je prak­tična primjena teorijskih koncepata LTE standarda, kao i sposobnost projektovanja, implementacije i verifikacije složenog komunikacionog sistema. Implementirani LTE simulacioni lanac predstavlja čvrstu osnovu za dalja istraživanja, analizu performansi i nadogradnju sistema, te ima značajnu edukativnu i istraživačku vrijednost.
