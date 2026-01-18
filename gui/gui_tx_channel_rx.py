@@ -1,16 +1,16 @@
 # gui_tx_channel.py
 """
-LTE Pro Analyzer - Glavna GUI Aplikacija
-========================================
+LTE TX- Channel-RX 
+===============================================================================
 
 Ova skripta pokreće Streamlit aplikaciju koja simulira kompletan LTE komunikacijski lanac:
 Transmitter (TX) -> Channel (Kanal) -> Receiver (RX).
 
 Funkcionalnosti:
-    - Generisanje LTE resursnog grida (PSS, SSS, CRS, PBCH, Podaci).
-    - Simulacija kanala (AWGN šum, frekvencijski ofset - CFO).
-    - Prijemnik sa sinhronizacijom (PSS korelacija) i korekcijom frekvencije.
-    - Napredna vizualizacija: Resource Map, Konstelacijski dijagram (EVM), OFDM spektar.
+    - Napredna vizualizacija: Waveform, Spectrum, Grid Inspector, OFDM Bins, Constellation.
+    - RX Analiza: Digitalni prikaz bitova sa detekcijom grešaka.
+    - Sweeps: Masovna simulacija (SNR/CFO) sa tabelom rezultata i Heatmap.
+    - Kontrole: Channel Bypass, RX Disable, Descrambling, Normalization.
 
 Pokretanje:
     $ streamlit run gui_tx_channel.py
@@ -18,13 +18,15 @@ Pokretanje:
 
 from __future__ import annotations
 
-import json
-import io
 import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, List
+
+# Dodani importi za nove funkcionalnosti
+import pandas as pd
+from scipy import signal 
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,8 +68,9 @@ def generate_resource_map(grid_shape: Tuple[int, int],
                           num_subframes: int, 
                           normal_cp: bool) -> np.ndarray:
     """
-    Generiše matricu (mapu) koja označava tip logičkog kanala za svaki element
-    vremensko-frekvencijskog grida. Koristi se za vizualizaciju strukture okvira.
+    Generiše matricu (mapu) resursa koja označava tip logičkog kanala za svaki element grida.
+
+    Koristi se za vizualizaciju strukture okvira (Grid Inspector).
 
     Parameters
     ----------
@@ -80,17 +83,16 @@ def generate_resource_map(grid_shape: Tuple[int, int],
     num_subframes : int
         Broj subfrejmova koji se simuliraju.
     normal_cp : bool
-        Ako je True, koristi Normal Cyclic Prefix (7 simbola po slotu).
-        Ako je False, koristi Extended CP (6 simbola po slotu).
+        Ako je True, koristi Normal Cyclic Prefix. Ako je False, koristi Extended CP.
 
     Returns
     -------
     np.ndarray
-        2D matrica (int) istih dimenzija kao grid. Vrijednosti označavaju:
-        - 0: Podaci ili Prazno (Data/Empty)
-        - 1: CRS (Cell-Specific Reference Signals - Piloti)
-        - 2: Sinhronizacijski signali (PSS/SSS)
-        - 3: Broadcast kanal (PBCH)
+        2D matrica cijelih brojeva (int) gdje vrijednosti označavaju:
+        - 0: Podaci/Prazno
+        - 1: CRS (Piloti)
+        - 2: PSS/SSS (Sinhronizacija)
+        - 3: PBCH (Broadcast)
     """
     n_sc, n_sym = grid_shape
     resource_map = np.zeros(grid_shape, dtype=int)
@@ -100,26 +102,21 @@ def generate_resource_map(grid_shape: Tuple[int, int],
     center_sc = n_sc // 2
     
     # --- 1. CRS (Cell Reference Signals - PILOTI) [ID: 1] ---
-    # Shift po frekvenciji zavisi od N_ID_2 (mod 6)
     v_shift = n_id_2 % 6
     
     for sf in range(num_subframes):
         sf_start = sf * n_sym_per_sf
         for slot in range(2):
             slot_start = sf_start + slot * n_sym_per_slot
-            # CRS se nalaze na simbolima 0 i 4 unutar slota (za Normal CP, Port 0)
             crs_syms = [0, 4] if normal_cp else [0, 3]
             
             for local_sym in crs_syms:
                 abs_sym = slot_start + local_sym
                 if abs_sym >= n_sym: continue
-                # Frekvencijski pomak zavisi od simbola unutar slota
                 k_shift = v_shift if local_sym == 0 else (v_shift + 3) % 6
-                # Svaki 6. podnosilac je pilot
                 resource_map[k_shift::6, abs_sym] = 1 
 
     # --- 2. PSS / SSS (Sync Signals) [ID: 2] ---
-    # Nalaze se u subfrejmovima 0 i 5, zauzimaju centralna 62 podnosioca.
     pss_width = 62
     sc_start = center_sc - (pss_width // 2)
     sc_end = center_sc + (pss_width // 2)
@@ -127,9 +124,7 @@ def generate_resource_map(grid_shape: Tuple[int, int],
     for sf in range(num_subframes):
         if sf in [0, 5]: 
             sf_start = sf * n_sym_per_sf
-            # PSS: Zadnji simbol prvog slota u subfrejmu
             pss_sym = sf_start + (n_sym_per_slot - 1)
-            # SSS: Simbol prije PSS-a
             sss_sym = pss_sym - 1
             
             if pss_sym < n_sym:
@@ -138,21 +133,17 @@ def generate_resource_map(grid_shape: Tuple[int, int],
                 resource_map[sc_start:sc_end, sss_sym] = 2
 
     # --- 3. PBCH (Broadcast Channel) [ID: 3] ---
-    # Nalazi se u Subfrejmu 0, Slot 1, prva 4 simbola. Centralna 72 podnosioca.
     pbch_width = 72
     pbch_sc_start = center_sc - (pbch_width // 2)
     pbch_sc_end = center_sc + (pbch_width // 2)
     
     if num_subframes > 0:
-        # PBCH je uvijek u subfrejmu 0, počinje od drugog slota (indeks n_sym_per_slot)
         slot1_start = n_sym_per_slot 
         pbch_syms = [slot1_start + i for i in range(4)]
         
         for sym in pbch_syms:
             if sym < n_sym:
                 current_col = resource_map[pbch_sc_start:pbch_sc_end, sym]
-                # Prebriši sve što nije CRS (1) sa PBCH (3)
-                # Ovo čuva CRS "rupe" unutar PBCH bloka
                 mask = (current_col != 1)
                 current_col[mask] = 3
                 resource_map[pbch_sc_start:pbch_sc_end, sym] = current_col
@@ -161,17 +152,17 @@ def generate_resource_map(grid_shape: Tuple[int, int],
 
 def safe_parse_mib_bits(bitstr: str) -> Optional[np.ndarray]:
     """
-    Parsira string jedinica i nula u NumPy niz bitova.
+    Sigurno parsira ulazni string bitova u NumPy niz.
 
     Parameters
     ----------
     bitstr : str
-        Ulazni string (npr. "10101...").
+        Ulazni string koji sadrži nule i jedinice (npr. "101010...").
 
     Returns
     -------
     Optional[np.ndarray]
-        Vraća niz int-ova (0 ili 1) dužine 24 ako je parsiranje uspješno.
+        Niz integera (0 ili 1) dužine 24 ako je parsiranje uspješno.
         Vraća None ako je string neispravan ili pogrešne dužine.
     """
     s = bitstr.strip().replace(" ", "")
@@ -182,32 +173,33 @@ def safe_parse_mib_bits(bitstr: str) -> Optional[np.ndarray]:
 def build_ifft_input_bins(grid_sym: np.ndarray, N: int) -> np.ndarray:
     """
     Mapira aktivne podnosioce iz baseband grida na ulaze IFFT-a.
-    Ovo uključuje umetanje DC nule i pomjeranje frekvencija (fftshift logika).
+    
+    Vrši pomjeranje frekvencija tako da DC komponenta bude u centru (indeks N/2)
+    i umeće nulu na DC nosiocu.
 
     Parameters
     ----------
     grid_sym : np.ndarray
-        Jedan OFDM simbol iz grida (vektor kompleksnih brojeva).
+        Vektor kompleksnih simbola jednog OFDM simbola (aktivni podnosioci).
     N : int
-        Veličina IFFT-a (npr. 128, 256, 512...).
+        Veličina IFFT-a (FFT size), npr. 128, 256, 512.
 
     Returns
     -------
     np.ndarray
-        Vektor dužine N spreman za IFFT.
+        Vektor dužine N spreman za IFFT operaciju, sa umetnutom nulom na DC-u
+        i odgovarajućim mapiranjem pozitivnih/negativnih frekvencija.
     """
     num_subcarriers = grid_sym.size
     half = num_subcarriers // 2
     dc = N // 2
     
     ifft_in = np.zeros(N, dtype=np.complex128)
-    ifft_in[dc] = 0.0 # DC komponenta je nula u LTE basebandu
+    ifft_in[dc] = 0.0 
     
-    # Mapiranje pozitivnih frekvencija (desna polovina grida)
     pos_freq_bins = np.arange(dc + 1, dc + 1 + half)
     pos_sub = np.arange(half, num_subcarriers)
     
-    # Mapiranje negativnih frekvencija (lijeva polovina grida)
     neg_freq_bins = np.arange(dc - half, dc)
     neg_sub = np.arange(0, half)
     
@@ -216,37 +208,179 @@ def build_ifft_input_bins(grid_sym: np.ndarray, N: int) -> np.ndarray:
     
     return ifft_in
 
-# ---------------------------------------------------------------------
+def draw_bit_comparison(tx_bits: np.ndarray, rx_bits: np.ndarray, title: str = "Bit Error Visualizer"):
+    """
+    Crta vizualno poređenje TX i RX bitova koristeći "step" plot (digitalni talasni oblik).
+    
+    Crta plavu liniju za TX bitove i zelenu isprekidanu za RX bitove.
+    Sva nepoklapanja (greške) se automatski označavaju crvenim 'X' markerima.
+
+    Parameters
+    ----------
+    tx_bits : np.ndarray
+        Niz poslatih bitova (Transmitted bits).
+    rx_bits : np.ndarray
+        Niz primljenih/dekodiranih bitova (Received bits).
+    title : str, optional
+        Naslov grafika. Default je "Bit Error Visualizer".
+
+    Returns
+    -------
+    None
+        Funkcija direktno iscrtava grafik koristeći `st.pyplot()`.
+    """
+    # 1. Robustno pretvaranje u numpy nizove (Handling Strings/Lists/Arrays)
+    if isinstance(tx_bits, str): tx_bits = [int(x) for x in tx_bits]
+    if isinstance(rx_bits, str): rx_bits = [int(x) for x in rx_bits]
+    
+    tx_bits = np.array(tx_bits).flatten().astype(int)
+    rx_bits = np.array(rx_bits).flatten().astype(int)
+    
+    n_bits = len(tx_bits)
+    if len(rx_bits) != n_bits:
+        st.warning(f"Dužina TX ({n_bits}) i RX ({len(rx_bits)}) bitova se ne poklapa. Prikazujem presjek.")
+        min_len = min(n_bits, len(rx_bits))
+        tx_bits = tx_bits[:min_len]
+        rx_bits = rx_bits[:min_len]
+        n_bits = min_len
+
+    # Indeksi
+    indices = np.arange(n_bits)
+    
+    # Pronadji greske
+    errors = (tx_bits != rx_bits)
+    num_errors = np.sum(errors)
+    
+    fig, ax = plt.subplots(figsize=(12, 5))
+    
+    # 1. Plot TX Bits (Original) - Plava linija
+    ax.step(indices, tx_bits, where='mid', label='TX Bits (Sent)', color='#1f77b4', linewidth=3, alpha=0.6)
+    
+    # 2. Plot RX Bits (Primljeni) - Zelena isprekidana linija
+    ax.step(indices, rx_bits, where='mid', label='RX Bits (Received)', color='green', linestyle='--', linewidth=2, alpha=0.9)
+    
+    # 3. Označavanje Grešaka (Crveni X)
+    if num_errors > 0:
+        error_indices = indices[errors]
+        ax.scatter(error_indices, rx_bits[error_indices], color='red', marker='x', s=150, linewidth=3, zorder=10, label=f'Bit Error ({num_errors})')
+        # Vertikalna linija za naglašavanje greške
+        for ei in error_indices:
+            ax.vlines(ei, rx_bits[ei], tx_bits[ei], colors='red', linestyles=':', alpha=0.5)
+
+    # Uljepsavanje grafa
+    ax.set_ylim(-0.5, 1.5)
+    ax.set_yticks([0, 1])
+    ax.set_yticklabels(['0 (Low)', '1 (High)'])
+    ax.set_xticks(indices)
+    ax.set_xlabel("Bit Index (Time)")
+    ax.set_ylabel("Bit Value")
+    ax.set_title(f"{title} - Detected Errors: {num_errors}")
+    ax.legend(loc='upper right')
+    ax.grid(True, axis='x', alpha=0.3)
+    
+    # Ispis vrijednosti TX bitova na dnu radi lakseg citanja
+    if n_bits <= 32:
+        for i, val in enumerate(tx_bits):
+            # Boja teksta zavisi od toga da li je greska
+            c_text = 'red' if errors[i] else 'gray'
+            fw = 'bold' if errors[i] else 'normal'
+            ax.text(i, -0.25, str(val), ha='center', color=c_text, fontweight=fw, fontsize=9)
+
+    st.pyplot(fig)
+
 # 3. KONFIGURACIJA (DATA CLASSES)
-# ---------------------------------------------------------------------
 @dataclass
 class TxConfig:
-    """Konfiguracija predajnika."""
-    ndlrb: int              # Broj Resource Blockova
-    normal_cp: bool         # Tip cikličnog prefiksa
-    num_subframes: int      # Trajanje simulacije
-    n_id_2: int             # ID unutar grupe (0-2)
-    pbch_enabled: bool      # Da li generisati PBCH
-    mib_mode: str           # "random" ili "manual"
-    mib_seed: int           # Seed za random MIB
-    mib_manual_bits: str    # String bitova za manual mode
+    """
+    Konfiguracija parametara predajnika (Transmitter).
+
+    Attributes
+    ----------
+    ndlrb : int
+        Broj resursnih blokova (bandwidth), npr. 6, 15, 25, 50.
+    normal_cp : bool
+        Tip cikličnog prefiksa (True=Normal, False=Extended).
+    num_subframes : int
+        Trajanje simulacije u subfrejmovima.
+    n_id_2 : int
+        ID grupe ćelije (0-2) za CRS pomak.
+    pbch_enabled : bool
+        Da li se generiše PBCH kanal.
+    mib_mode : str
+        Način generisanja MIB bitova ("random" ili "manual").
+    mib_seed : int
+        Seed za generator slučajnih brojeva (ako je mib_mode="random").
+    mib_manual_bits : str
+        String bitova ako je odabran "manual" mod.
+    """
+    ndlrb: int              
+    normal_cp: bool         
+    num_subframes: int      
+    n_id_2: int             
+    pbch_enabled: bool      
+    mib_mode: str           
+    mib_seed: int           
+    mib_manual_bits: str    
 
 @dataclass
 class ChannelConfig:
-    """Konfiguracija kanala."""
-    freq_offset_hz: float   # Frekvencijski ofset (CFO)
-    snr_db: float           # Odnos signal-šum
-    seed: int               # Seed za šum
+    """
+    Konfiguracija kanala.
+
+    Attributes
+    ----------
+    enabled : bool
+        Da li je kanal aktivan (On/Off). Ako je False, koristi se bypass (idealan prenos).
+    freq_offset_hz : float
+        Frekvencijski ofset (CFO) u Hz.
+    snr_db : float
+        Odnos signal-šum (SNR) u decibelima.
+    seed : int
+        Seed za generisanje šuma u kanalu.
+    initial_phase_rad : float
+        Početna faza (za testiranje faznog pomaka).
+    """
+    enabled: bool           
+    freq_offset_hz: float   
+    snr_db: float           
+    seed: int               
     initial_phase_rad: float
 
 @dataclass
 class RxConfig:
-    """Konfiguracija prijemnika."""
-    enable_cfo_correction: bool # Da li vršiti korekciju frekvencije
+    """
+    Konfiguracija prijemnika.
+
+    Attributes
+    ----------
+    enabled : bool
+        Da li je prijemnik aktivan.
+    enable_cfo_correction : bool
+        Da li primijeniti algoritam za korekciju CFO-a.
+    descrambling : bool
+        Uključuje/isključuje descrambling korak.
+    normalize_pss : bool
+        Da li normalizovati signal prije PSS korelacije.
+    """
+    enabled: bool               
+    enable_cfo_correction: bool 
+    descrambling: bool          
+    normalize_pss: bool         
 
 @dataclass
 class RunConfig:
-    """Objedinjena konfiguracija za cijelu simulaciju."""
+    """
+    Objedinjena konfiguracija za cijelu simulaciju.
+
+    Attributes
+    ----------
+    tx : TxConfig
+        Postavke predajnika.
+    ch : ChannelConfig
+        Postavke kanala.
+    rx : RxConfig
+        Postavke prijemnika.
+    """
     tx: TxConfig
     ch: ChannelConfig
     rx: RxConfig
@@ -255,24 +389,29 @@ class RunConfig:
 @st.cache_data(show_spinner=False)
 def run_simulation(cfg: RunConfig) -> Dict[str, Any]:
     """
-    Izvršava kompletan LTE pipeline: TX -> Channel -> RX.
-    Rezultati se keširaju radi performansi u Streamlitu.
+    Pokreće kompletan LTE komunikacijski lanac: TX -> Channel -> RX.
+
+    Ova funkcija orkestrira generisanje signala, prolazak kroz kanal i dekodiranje.
+    Podržava 'Channel Bypass' i 'RX Disable' modove.
+    Rezultati se keširaju pomoću @st.cache_data radi performansi.
 
     Parameters
     ----------
     cfg : RunConfig
-        Objekat koji sadrži sve parametre za TX, Channel i RX.
+        Objedinjen konfiguracijski objekat koji sadrži TX, Channel i RX postavke.
 
     Returns
     -------
     Dict[str, Any]
-        Rječnik sa svim rezultatima simulacije:
-        - 'tx_waveform': Generisani signal (vremenska domena).
-        - 'rx_waveform': Signal na prijemu (sa šumom i CFO).
+        Rječnik sa rezultatima simulacije, uključujući:
+        - 'tx_waveform': Generisani signal (vremenski domen).
+        - 'rx_waveform': Primljeni signal nakon kanala.
         - 'grid': Originalni TX resursni grid.
-        - 'rx_result': Rezultati dekodiranja (RXResult objekat).
-        - 'pss_corr': Vektor korelacije za sinhronizaciju.
-        - 'rx_pbch_symbols': Ekstraktovani PBCH simboli (za EVM).
+        - 'rx_result': Objekat sa rezultatima dekodiranja (LTERxResult).
+        - 'pss_corr': Vektor korelacije za PSS sinhronizaciju.
+        - 'fs': Frekvencija uzorkovanja.
+        - 'mib_tx': Originalni poslani bitovi.
+        - 'rx_pbch_symbols': Ekstraktovani simboli za konstelaciju.
     """
     results = {}
     
@@ -298,67 +437,79 @@ def run_simulation(cfg: RunConfig) -> Dict[str, Any]:
     tx_waveform, fs = tx_chain.generate_waveform(mib_bits=mib_bits)
     fs = float(fs)
     
-    # Spremanje TX rezultata
     results['fs'] = fs
     results['tx_waveform'] = tx_waveform
     results['grid'] = tx_chain.grid
     results['mib_tx'] = mib_bits
     
-    # Pomoćni modulator samo za dohvat Nfft veličine
     temp_ofdm = OFDMModulator(tx_chain.grid)
     results['Nfft'] = temp_ofdm.N
     results['pss_index'] = tx_chain._pss_symbol_index()
 
     # --- 2. CHANNEL (KANAL) ---
-    channel = LTEChannel(
-        freq_offset_hz=float(cfg.ch.freq_offset_hz), 
-        sample_rate_hz=fs,
-        snr_db=float(cfg.ch.snr_db), 
-        seed=int(cfg.ch.seed),
-        initial_phase_rad=float(cfg.ch.initial_phase_rad),
-    )
-    rx_waveform = channel.apply(tx_waveform)
+    if cfg.ch.enabled:
+        channel = LTEChannel(
+            freq_offset_hz=float(cfg.ch.freq_offset_hz), 
+            sample_rate_hz=fs,
+            snr_db=float(cfg.ch.snr_db), 
+            seed=int(cfg.ch.seed),
+            initial_phase_rad=float(cfg.ch.initial_phase_rad),
+        )
+        rx_waveform = channel.apply(tx_waveform)
+    else:
+        # Bypass Mode (Idealan kanal)
+        rx_waveform = tx_waveform.copy()
+        
     results['rx_waveform'] = rx_waveform
 
     # --- 3. RECEIVER (RX) PROCESSING ---
+    if not cfg.rx.enabled:
+        results['rx_result'] = None
+        results['pss_corr'] = None
+        results['rx_pbch_symbols'] = None
+        return results
+
     rx_chain = LTERxChain(
         sample_rate_hz=fs, 
         ndlrb=cfg.tx.ndlrb, 
         normal_cp=cfg.tx.normal_cp,
-        pci=0, # Inicijalni PCI, biće prebrisan detekcijom
+        pci=0,
         enable_cfo_correction=cfg.rx.enable_cfo_correction,
         pbch_spread_subframes=cfg.tx.num_subframes
     )
+    
+    # Primjena descrambling/normalization parametara (ako backend podržava)
+    if hasattr(rx_chain, 'descrambling_enabled'):
+        rx_chain.descrambling_enabled = cfg.rx.descrambling
+    if hasattr(rx_chain, 'normalize_pss'):
+        rx_chain.normalize_pss = cfg.rx.normalize_pss
     
     t0 = time.time()
     rx_res = rx_chain.decode(rx_waveform)
     results['rx_result'] = rx_res
     results['process_time'] = time.time() - t0
 
-    # --- 4. ANALITIKA (PSS, EVM, Constellation) ---
-    
-    # 4.1 PSS Korelacija (za vizualizaciju peak-ova)
+    # --- 4. ANALITIKA (PSS, EVM) ---
     pss_sync = PSSSynchronizer(fs, ndlrb=cfg.tx.ndlrb, normal_cp=cfg.tx.normal_cp)
-    rx_norm = rx_waveform / (np.sqrt(np.mean(np.abs(rx_waveform)**2)) + 1e-12)
-    pss_corr = pss_sync.correlate(rx_norm)
+    
+    # Normalizacija prije PSS-a
+    if cfg.rx.normalize_pss:
+        rx_for_pss = rx_waveform / (np.sqrt(np.mean(np.abs(rx_waveform)**2)) + 1e-12)
+    else:
+        rx_for_pss = rx_waveform
+
+    pss_corr = pss_sync.correlate(rx_for_pss)
     results['pss_corr'] = pss_corr
 
-    # 4.2 Ekstrakcija PBCH simbola za EVM analizu
-    # Ovo je dodatni korak koji simulira "savršenu" ekstrakciju nakon sinhronizacije
-    # da bismo mogli nacrtati konstelacijski dijagram (QPSK tačke).
     results['rx_pbch_symbols'] = None
-    
     if rx_res.tau_hat is not None:
-        # Primijeni CFO korekciju ako je detektovana
         cfo = rx_res.cfo_hat if (cfg.rx.enable_cfo_correction and rx_res.cfo_hat) else 0.0
         fo_corr = FrequencyOffset(-cfo, fs)
         rx_cfo_corr = fo_corr.apply(rx_waveform)
         
-        # Poravnanje (Time Alignment)
         start_idx = rx_res.tau_hat
         ofdm_demod = OFDMDemodulator(cfg.tx.ndlrb, cfg.tx.normal_cp)
         
-        # Izračunaj koliko uzoraka treba vratiti unazad da se dođe na početak subfrejma
         sym_idx_pss = 6 if cfg.tx.normal_cp else 5
         samps_before = 0
         for i in range(sym_idx_pss):
@@ -370,11 +521,9 @@ def run_simulation(cfg: RunConfig) -> Dict[str, Any]:
         rx_aligned = rx_cfo_corr[start_sf:]
         
         try:
-            # Demodulacija cijelog niza
             grid_full = ofdm_demod.demodulate(rx_aligned)
             grid_active = ofdm_demod.extract_active_subcarriers(grid_full)
             
-            # Ekstrakcija PBCH simbola
             extracted_syms = []
             for sf_idx in range(min(4, cfg.tx.num_subframes)):
                 pbch_indices = pbch_symbol_indices_for_subframes(1, cfg.tx.normal_cp, start_subframe=sf_idx)
@@ -412,23 +561,29 @@ if pbch_on and st.sidebar.radio("MIB Izvor", ["Random", "Manual"]) == "Manual":
 
 st.sidebar.markdown("---")
 st.sidebar.header("2. Kanal (Channel)")
-snr_db = st.sidebar.slider("SNR (dB)", -5.0, 35.0, 20.0, 1.0)
-st.sidebar.caption(" 5dB za test robusnosti!")
-cfo_hz = st.sidebar.number_input("CFO (Hz)", -5000.0, 5000.0, 0.0, step=100.0)
-st.sidebar.caption(" 300Hz ili više!")
+# Channel ON/OFF
+channel_enabled = st.sidebar.checkbox("Channel Active (Uključi smetnje)", value=True, help="Ako je isključeno, signal ide direktno TX->RX (idealan prenos).")
+
+# Promijenjen opseg SNR-a na -25.0 da se omogući razbijanje signala
+snr_db = st.sidebar.slider("SNR (dB)", -25.0, 35.0, 20.0, 1.0, disabled=not channel_enabled)
+cfo_hz = st.sidebar.number_input("CFO (Hz)", -5000.0, 5000.0, 0.0, step=100.0, disabled=not channel_enabled)
 seed = st.sidebar.number_input("RNG Seed", 0, 9999, 42)
 
 st.sidebar.markdown("---")
 st.sidebar.header("3. Receiver (RX)")
-rx_corr = st.sidebar.checkbox("CFO Korekcija", value=True)
+# RX ON/OFF i dodatne opcije
+rx_enabled = st.sidebar.checkbox("Receiver Active", value=True)
+rx_corr = st.sidebar.checkbox("CFO Korekcija", value=True, disabled=not rx_enabled)
+rx_descramble = st.sidebar.checkbox("Descrambling", value=True, disabled=not rx_enabled, help="Uključi/isključi de-scrambling bitova.")
+rx_norm_pss = st.sidebar.checkbox("Normalize before PSS", value=True, disabled=not rx_enabled, help="Normalizuj signal prije korelacije.")
 
 run_btn = st.sidebar.button("POKRENI SIMULACIJU", type="primary")
 
 # Kreiranje konfiguracijskog objekta
 cfg = RunConfig(
     tx=TxConfig(ndlrb, normal_cp, num_subframes, n_id_2, pbch_on, mib_mode, seed, mib_man),
-    ch=ChannelConfig(cfo_hz, snr_db, seed, 0.0),
-    rx=RxConfig(rx_corr)
+    ch=ChannelConfig(channel_enabled, cfo_hz, snr_db, seed, 0.0),
+    rx=RxConfig(rx_enabled, rx_corr, rx_descramble, rx_norm_pss)
 )
 
 # --- POKRETANJE SIMULACIJE ---
@@ -449,42 +604,73 @@ if "res" in st.session_state:
 
     # Metrics Row
     st.subheader("📊 Rezultati Detekcije")
-    col1, col2, col3, col4 = st.columns(4)
     
-    # PSS ID Provjera
-    pss_ok = (rx_out.n_id_2_hat == c.tx.n_id_2)
-    col1.metric("PSS ID (Cell ID)", f"{rx_out.n_id_2_hat}", delta="MATCH" if pss_ok else "MISMATCH")
-    
-    col2.metric("Timing Offset", f"{rx_out.tau_hat}")
-    
-    est_cfo = rx_out.cfo_hat if rx_out.cfo_hat else 0.0
-    col3.metric("Est. CFO", f"{est_cfo:.1f} Hz", f"Err: {abs(est_cfo - c.ch.freq_offset_hz):.1f} Hz")
-    
-    col4.metric("MIB CRC", "PASS" if rx_out.crc_ok else "FAIL", 
-                delta_color="normal" if rx_out.crc_ok else "inverse")
+    if not c.ch.enabled:
+        st.info("ℹ️ **Kanal je isključen (Bypass Mode).** Rezultati predstavljaju idealan prenos bez šuma.")
 
-    # Tabovi za vizualizaciju
-    tabs = st.tabs(["Overview", "Grid Inspector (Maps)", "OFDM Bins", "RX: PSS Sync", "RX: EVM & Constellation", "RX: Bits", "Waveform"])
+    if rx_out:
+        col1, col2, col3, col4 = st.columns(4)
+        
+        # PSS ID Provjera
+        pss_ok = (rx_out.n_id_2_hat == c.tx.n_id_2)
+        col1.metric("PSS ID (Cell ID)", f"{rx_out.n_id_2_hat}", delta="MATCH" if pss_ok else "MISMATCH")
+        col2.metric("Timing Offset", f"{rx_out.tau_hat}")
+        
+        est_cfo = rx_out.cfo_hat if rx_out.cfo_hat else 0.0
+        target_cfo = c.ch.freq_offset_hz if c.ch.enabled else 0.0
+        col3.metric("Est. CFO", f"{est_cfo:.1f} Hz", f"Err: {abs(est_cfo - target_cfo):.1f} Hz")
+        
+        # --- CRC Logic sa stvarnom provjerom bitova ---
+        has_bit_errors = False
+        if rx_out.mib_bits is not None and res.get('mib_tx') is not None:
+            tx_b_chk = np.array(res['mib_tx']).flatten().astype(int)
+            rx_b_chk = np.array(rx_out.mib_bits).flatten().astype(int)
+            if len(tx_b_chk) == len(rx_b_chk):
+                has_bit_errors = np.any(tx_b_chk != rx_b_chk)
+        
+        crc_text = "PASS" if rx_out.crc_ok else "FAIL"
+        crc_subtext = "OK"
+        crc_color = "normal"
+        
+        if not rx_out.crc_ok:
+            crc_subtext = "-Error"
+            crc_color = "inverse"
+        elif has_bit_errors:
+            crc_text = "PASS (?)"
+            crc_subtext = "⚠️ Bit Errors"
+            crc_color = "inverse"
+            
+        col4.metric("MIB CRC", crc_text, crc_subtext, delta_color=crc_color)
+    else:
+        st.warning("Receiver is OFF. Only TX signals available.")
+
+    # --- DEFINICIJA TABOVA ---
+    tabs = st.tabs([
+        "Overview", 
+        "Grid Inspector", 
+        "OFDM Bins", 
+        "RX: PSS Sync", 
+        "RX: EVM & Constellation", 
+        "RX: Bits", 
+        "Waveform & Spectrum", 
+        "Sweeps"               
+    ])
 
     # --- TAB 1: OVERVIEW ---
     with tabs[0]:
-        st.info(f"Parametri: BW={c.tx.ndlrb} RBs | SNR={c.ch.snr_db} dB | N_ID_2={c.tx.n_id_2}")
+        snr_status = f"{c.ch.snr_db} dB" if c.ch.enabled else "**Bypass (No Noise)**"
+        st.info(f"Parametri: BW={c.tx.ndlrb} RBs | SNR={snr_status} | N_ID_2={c.tx.n_id_2}")
         st.write("Dobrodošli u LTE Simulator. Koristite tabove iznad za detaljnu analizu.")
-        st.markdown("""
-        - **Grid Inspector:** Vizualizacija rasporeda kanala (CRS, PSS, PBCH).
-        - **OFDM Bins:** Spektralni prikaz pojedinačnih simbola.
-        - **RX EVM:** Kvalitet signala (Error Vector Magnitude).
-        """)
 
-    # --- TAB 2: GRID INSPECTOR (NOVO!) ---
+    # --- TAB 2: GRID INSPECTOR (Trenutno ažuriranje) ---
     with tabs[1]:
         st.subheader("Resource Grid Inspector")
-        grid = res["grid"]
+        # Koristimo trenutne (selektovane) vrijednosti iz sidebara za Structure View da se azurira odmah
         
-        # Radio button za izbor pogleda
         view_mode = st.radio("Tip prikaza", ["Energy (Magnitude)", "Resource Map (Structure)"], horizontal=True)
         
         if view_mode == "Energy (Magnitude)":
+            grid = res["grid"]
             n_sym = grid.shape[1]
             default_sym = int(res.get('pss_index', 0))
             sym_sel = st.slider("Odaberi OFDM Simbol", 0, n_sym - 1, default_sym)
@@ -497,19 +683,27 @@ if "res" in st.session_state:
             st.pyplot(fig)
             
         else:
-            # --- STRUCTURE VIEW ---
-            st.caption("Boje označavaju tip kanala (Logička struktura).")
-            rmap = generate_resource_map(grid.shape, c.tx.ndlrb, c.tx.n_id_2, c.tx.num_subframes, c.tx.normal_cp)
+            # Structure View: Generisi na osnovu TRENUTNIH (sidebar) postavki (dinamicki)
+            st.caption("Boje označavaju tip kanala. Prikaz se ažurira trenutno.")
             
-            # Custom mapa boja
-            cmap_colors = ['white', '#d62728', '#ff7f0e', '#1f77b4'] # Bijela, Crvena, Žuta, Plava
+            curr_ndlrb = cfg.tx.ndlrb
+            curr_nid2 = cfg.tx.n_id_2
+            curr_nsf = cfg.tx.num_subframes
+            curr_cp = cfg.tx.normal_cp
+            
+            # Pretpostavka za dimenzije
+            curr_n_sc = curr_ndlrb * 12
+            curr_n_sym = curr_nsf * 14 # Normal CP
+            rmap = generate_resource_map((curr_n_sc, curr_n_sym), curr_ndlrb, curr_nid2, curr_nsf, curr_cp)
+            
+            cmap_colors = ['white', '#d62728', '#ff7f0e', '#1f77b4'] 
             cmap = ListedColormap(cmap_colors)
             bounds = [-0.5, 0.5, 1.5, 2.5, 3.5]
             norm = BoundaryNorm(bounds, cmap.N)
             
             fig_map, ax_map = plt.subplots(figsize=(12, 5))
             ax_map.imshow(rmap, aspect="auto", origin="lower", cmap=cmap, norm=norm, interpolation='nearest')
-            ax_map.set_title(f"LTE Resource Map (N_ID_2={c.tx.n_id_2})")
+            ax_map.set_title(f"LTE Resource Map (N_ID_2={curr_nid2})")
             ax_map.set_xlabel("OFDM Symbols")
             ax_map.set_ylabel("Subcarriers")
             
@@ -520,114 +714,343 @@ if "res" in st.session_state:
                 mpatches.Patch(color='#ff7f0e', label='PSS/SSS (Sync)'),
                 mpatches.Patch(color='#1f77b4', label='PBCH (Info)')
             ]
-            ax_map.legend(handles=patches, loc='upper right')
+            ax_map.legend(handles=patches, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+            plt.tight_layout()
             st.pyplot(fig_map)
-            st.info("Pokušaj promijeniti 'N_ID_2' u Sidebaru i vidi kako se Crvene tačkice (CRS) pomjeraju!")
+
+            st.markdown("""
+            **Objašnjenje boja:**
+            - 🔴 **CRS (Crveno):** Piloti.
+            - 🟠 **PSS/SSS (Narandžasto):** Sinhronizacija.
+            - 🔵 **PBCH (Plavo):** Broadcast kanal.
+            """)
 
     # --- TAB 3: OFDM BINS ---
     with tabs[2]:
         st.subheader("OFDM / IFFT Input")
+        st.caption("Prikaz magnitude ulaznih binova u IFFT za odabrani simbol (dB).")
+        
         grid = res["grid"]
         sym_sel_bin = st.slider("Simbol", 0, grid.shape[1]-1, 0, key="bin_slider")
         bins = build_ifft_input_bins(grid[:, sym_sel_bin], res["Nfft"])
         
-        fig, ax = plt.subplots(2, 1, figsize=(10, 6))
-        # Prikaz magnitude cijelog spektra
-        ax[0].plot(np.abs(bins), '.-', linewidth=0.5)
-        ax[0].set_title("Magnitude (Whole Band)")
+        mag_db = 20 * np.log10(np.abs(bins) + 1e-12)
         
-        # Prikaz oko DC-a (centralne frekvencije)
-        dc = res["Nfft"] // 2
-        ax[1].plot(np.arange(dc-15, dc+15), np.abs(bins[dc-15:dc+15]), 'o-', color='red')
-        ax[1].set_title("Zoom DC (Subcarrier 0 mora biti Null)")
-        plt.tight_layout()
+        # Mapiranje tipova (za boje)
+        rmap = generate_resource_map(grid.shape, c.tx.ndlrb, c.tx.n_id_2, c.tx.num_subframes, c.tx.normal_cp)
+        current_types = rmap[:, sym_sel_bin] 
+        
+        N = res["Nfft"]
+        type_bins = np.full(N, -1, dtype=int) 
+        
+        num_sc = grid.shape[0]
+        half = num_sc // 2
+        dc = N // 2
+        
+        pos_freq = np.arange(dc + 1, dc + 1 + half)
+        pos_sub = np.arange(half, num_sc)
+        neg_freq = np.arange(dc - half, dc)
+        neg_sub = np.arange(0, half)
+        
+        type_bins[pos_freq] = current_types[pos_sub]
+        type_bins[neg_freq] = current_types[neg_sub]
+        type_bins[dc] = -2 
+        
+        freq_idx = np.arange(N) - dc
+        
+        fig, ax = plt.subplots(figsize=(10, 5))
+        
+        styles = {
+            -1: ("Guard", "white", 0.0),
+            -2: ("DC", "black", 0.0),    
+            0:  ("Data", "gray", 0.5),
+            1:  ("CRS (Pilot)", "#d62728", 1.0), 
+            2:  ("PSS/SSS", "#ff7f0e", 0.8),     
+            3:  ("PBCH", "#1f77b4", 0.8)         
+        }
+        
+        for t_code, (label, color, alpha) in styles.items():
+            if t_code < 0: continue 
+            
+            mask = (type_bins == t_code)
+            if np.any(mask):
+                markerline, stemlines, baseline = ax.stem(
+                    freq_idx[mask], mag_db[mask], 
+                    markerfmt='o', basefmt=" ", linefmt='-'
+                )
+                plt.setp(markerline, markersize=3, color=color, label=label)
+                plt.setp(stemlines, linewidth=0.8, color=color, alpha=0.7)
+
+        ax.axvline(0, color='black', linestyle='--', alpha=0.5, linewidth=1, label='DC (Null)')
+        ax.set_title(f"Subcarrier Magnitude Spectrum (Symbol {sym_sel_bin})")
+        ax.set_xlabel("Subcarrier Index (Relative to Center Freq)")
+        ax.set_ylabel("Magnitude [dB]")
+        ax.set_ylim(bottom=-60)
+        ax.legend(loc='upper right')
+        ax.grid(True, alpha=0.3)
         st.pyplot(fig)
 
     # --- TAB 4: RX PSS ---
     with tabs[3]:
         st.subheader("PSS Cross-Correlation")
-        pss_corr = res['pss_corr']
-        fig_pss, ax_pss = plt.subplots(figsize=(10, 4))
-        for i in range(3):
-            ax_pss.plot(np.abs(pss_corr[i, :]), label=f"Hypothesis N_ID_2={i}", alpha=0.7)
-        ax_pss.axvline(rx_out.tau_hat, color='k', linestyle='--', label='Detected Peak')
-        ax_pss.legend()
-        ax_pss.set_xlabel("Sample Index")
-        ax_pss.set_ylabel("Correlation Magnitude")
-        # Zoom oko detektovanog pika
-        ax_pss.set_xlim(max(0, rx_out.tau_hat-200), rx_out.tau_hat+200)
-        st.pyplot(fig_pss)
+        if rx_out:
+            pss_corr = res['pss_corr']
+            fig_pss, ax_pss = plt.subplots(figsize=(10, 4))
+            for i in range(3):
+                ax_pss.plot(np.abs(pss_corr[i, :]), label=f"Hypothesis N_ID_2={i}", alpha=0.7)
+            ax_pss.axvline(rx_out.tau_hat, color='k', linestyle='--', label='Detected Peak')
+            ax_pss.legend()
+            ax_pss.set_xlabel("Sample Index")
+            ax_pss.set_ylabel("Correlation Magnitude")
+            ax_pss.set_xlim(max(0, rx_out.tau_hat-200), rx_out.tau_hat+200)
+            st.pyplot(fig_pss)
+        else:
+            st.warning("Receiver Disabled.")
 
     # --- TAB 5: RX EVM & CONSTELACIJA ---
     with tabs[4]:
         st.subheader("Kvalitet Signala (EVM & Constellation)")
-        
-        syms = res.get('rx_pbch_symbols')
-        if syms is not None and len(syms) > 0:
-            # 1. Blind Phase Correction (za prikaz konstelacije)
-            # Normalizacija snage
-            p_avg = np.mean(np.abs(syms)**2)
-            syms = syms / np.sqrt(p_avg)
+        if rx_out:
+            syms = res.get('rx_pbch_symbols')
             
-            corrected_syms = []
-            phase_acc = 0.0
-            alpha = 0.05 # Faktor učenja za faznu petlju
-            
-            # QPSK Idealne tačke
-            ideals = np.array([1+1j, 1-1j, -1+1j, -1-1j]) / np.sqrt(2)
-            error_vectors = []
-            
-            for s in syms:
-                # Derotacija
-                s_rot = s * np.exp(-1j * phase_acc)
-                # Hard decision (najbliža idealna tačka)
-                dec = (np.sign(s_rot.real) + 1j * np.sign(s_rot.imag))/np.sqrt(2)
+            if syms is not None and len(syms) > 0:
+                p_avg = np.mean(np.abs(syms)**2)
+                syms = syms / np.sqrt(p_avg)
                 
-                # Procjena greške faze
-                err = np.angle(s_rot * np.conj(dec))
-                phase_acc += alpha * err
-                corrected_syms.append(s_rot)
+                corrected_syms = []
+                phase_acc = 0.0
+                alpha = 0.05 
+                ideals = np.array([1+1j, 1-1j, -1+1j, -1-1j]) / np.sqrt(2)
+                error_vectors = []
                 
-                # EVM vektor
-                error_vectors.append(np.abs(s_rot - dec)**2)
+                for s in syms:
+                    s_rot = s * np.exp(-1j * phase_acc)
+                    dec = (np.sign(s_rot.real) + 1j * np.sign(s_rot.imag))/np.sqrt(2)
+                    err = np.angle(s_rot * np.conj(dec))
+                    phase_acc += alpha * err
+                    corrected_syms.append(s_rot)
+                    error_vectors.append(np.abs(s_rot - dec)**2)
 
-            # 2. EVM Izračun
-            mse = np.mean(error_vectors)
-            evm_rms = np.sqrt(mse) * 100 # U postocima
-            
-            st.metric("EVM (Error Vector Magnitude)", f"{evm_rms:.2f} %", 
-                      delta="Loše" if evm_rms > 17.5 else "Dobro", 
-                      delta_color="inverse" if evm_rms > 17.5 else "normal")
-            
-            st.caption("Manji EVM je bolji. Za QPSK, EVM < 17.5% je standard.")
-
-            # 3. Plot Konstelacije
-            syms_plot = np.array(corrected_syms)
-            fig_const, ax_const = plt.subplots(figsize=(6, 6))
-            ax_const.scatter(syms_plot.real, syms_plot.imag, s=20, alpha=0.5, label=f"RX Symbols")
-            ax_const.scatter(ideals.real, ideals.imag, c='red', marker='x', s=100, linewidth=2, label="Ideal QPSK")
-            ax_const.grid(True, linestyle=':')
-            ax_const.set_xlim(-2, 2); ax_const.set_ylim(-2, 2)
-            ax_const.axhline(0, color='gray'); ax_const.axvline(0, color='gray')
-            ax_const.legend()
-            ax_const.set_title("PBCH Constellation (QPSK)")
-            st.pyplot(fig_const)
+                mse = np.mean(error_vectors)
+                evm_rms = np.sqrt(mse) * 100 
+                
+                st.metric("EVM (RMS)", f"{evm_rms:.2f} %", 
+                          delta="Loše" if evm_rms > 17.5 else "Dobro", 
+                          delta_color="inverse" if evm_rms > 17.5 else "normal")
+                
+                syms_plot = np.array(corrected_syms)
+                fig_const, ax_const = plt.subplots(figsize=(6, 6))
+                ax_const.scatter(syms_plot.real, syms_plot.imag, s=20, alpha=0.5, label=f"RX Symbols")
+                ax_const.scatter(ideals.real, ideals.imag, c='red', marker='x', s=100, linewidth=2, label="Ideal QPSK")
+                ax_const.grid(True, linestyle=':')
+                ax_const.set_xlim(-2, 2); ax_const.set_ylim(-2, 2)
+                ax_const.axhline(0, color='gray'); ax_const.axvline(0, color='gray')
+                ax_const.legend()
+                ax_const.set_title("PBCH Constellation (QPSK)")
+                st.pyplot(fig_const)
+            else:
+                st.warning("Nema PBCH simbola za prikaz.")
         else:
-            st.warning("Nema PBCH simbola za prikaz (vjerovatno neuspješna sinhronizacija).")
+            st.warning("Receiver Disabled.")
 
-    # --- TAB 6 & 7 (BITS & WAVEFORM) ---
+    # --- TAB 6: RX BITS ---
     with tabs[5]:
-        if c.tx.pbch_enabled and rx_out.mib_bits is not None:
-             st.write("Dekodirani bitovi (RX):")
-             st.code(f"{rx_out.mib_bits}")
-             st.write("Poslani bitovi (TX):")
-             st.code(f"{res['mib_tx']}")
-        else: st.info("Nema podataka o bitovima.")
+        if rx_out and c.tx.pbch_enabled:
+            # Uvijek imamo TX bitove
+            tx_b = np.array(res['mib_tx']).flatten().astype(int)
+            
+            # Pokušaj dohvatiti RX bitove
+            if rx_out.mib_bits is not None:
+                 rx_b = np.array(rx_out.mib_bits).flatten().astype(int)
+                 sync_failed = False
+            else:
+                 # FALLBACK: Ako sync ne uspije, generiši nasumične bitove (šum)
+                 # Ovo omogućava prikaz "Crvenih X-ova" čak i kad je signal uništen
+                 rx_b = np.random.randint(0, 2, size=len(tx_b))
+                 sync_failed = True
+            
+            st.subheader("Vizualizacija Grešaka u Bitovima")
+            
+            st.caption("Poređenje poslatih (TX) i primljenih (RX) bitova MIB poruke.")
+            
+            # Izračun BER-a
+            if len(tx_b) == len(rx_b):
+                ber = np.mean(tx_b != rx_b)
+                num_errs = np.sum(tx_b != rx_b)
+            else:
+                ber = 1.0
+                num_errs = len(tx_b)
+            
+            # Poruka o statusu
+            if num_errs == 0 and not sync_failed:
+                st.success(f"Perfect Reception! BER: {ber:.4f}")
+            else:
+                st.error(f"Errors Detected! BER: {ber:.4f} ({num_errs} grešaka od {len(tx_b)} bitova)")
+            
+            # Vizualizacija
+            draw_bit_comparison(tx_b, rx_b, title="MIB Bit Comparison (TX vs RX)")
+            
+            with st.expander("Prikaži sirove podatke (Raw Bits)"):
+                st.write("Poslani bitovi (TX):")
+                st.code(f"{res['mib_tx']}")
+                if not sync_failed:
+                    st.write("Dekodirani bitovi (RX):")
+                    st.code(f"{rx_out.mib_bits}")
+                else:
+                    st.write("RX Bitovi: N/A (Sync Failed - Noise displayed above)")
+                 
+        else: st.info("RX isključen ili PBCH nije omogućen.")
         
+    # --- TAB 7: WAVEFORM & SPECTRUM ---
     with tabs[6]:
-        fig_w, ax_w = plt.subplots()
-        ax_w.plot(np.real(res['tx_waveform'][:200]), label='TX (Clean)')
-        ax_w.plot(np.real(res['rx_waveform'][:200]), label='RX (Noisy)', alpha=0.5)
-        ax_w.set_title("Time Domain Waveform (Prvih 200 uzoraka)")
+        st.subheader("Analiza Signala: Vrijeme & Frekvencija")
+        
+        tx_sig = res['tx_waveform']
+        rx_sig = res['rx_waveform']
+        fs = res['fs']
+        
+        st.write("**Vremenski Domen**")
+        fig_w, ax_w = plt.subplots(figsize=(10, 3))
+        t_ms = np.arange(len(tx_sig)) / fs * 1000
+        limit = min(2000, len(tx_sig))
+        
+        ax_w.plot(t_ms[:limit], np.real(tx_sig[:limit]), label='TX (Real)', alpha=0.8)
+        if c.ch.enabled or True: 
+            ax_w.plot(t_ms[:limit], np.real(rx_sig[:limit]), label='RX (Real)', alpha=0.5)
+        ax_w.set_xlabel("Time (ms)")
+        ax_w.set_ylabel("Amplitude")
+        ax_w.set_title("Waveform (Prvih 2000 uzoraka)")
         ax_w.legend()
+        ax_w.grid(True, alpha=0.3)
         st.pyplot(fig_w)
+        
+        st.write("**Frekvencijski Domen (PSD)**")
+        fig_s, ax_s = plt.subplots(figsize=(10, 4))
+        
+        f_tx, Pxx_tx = signal.welch(tx_sig, fs, nperseg=1024, return_onesided=False)
+        ax_s.semilogy(np.fft.fftshift(f_tx)/1e6, np.fft.fftshift(Pxx_tx), label='TX Spectrum')
+        
+        f_rx, Pxx_rx = signal.welch(rx_sig, fs, nperseg=1024, return_onesided=False)
+        ax_s.semilogy(np.fft.fftshift(f_rx)/1e6, np.fft.fftshift(Pxx_rx), label='RX Spectrum', alpha=0.7)
+        
+        ax_s.set_xlabel("Frequency (MHz)")
+        ax_s.set_ylabel("PSD (V**2/Hz)")
+        ax_s.set_title("Power Spectral Density")
+        ax_s.legend()
+        ax_s.grid(True, alpha=0.3)
+        st.pyplot(fig_s)
+
+    # --- TAB 8: SWEEPS ---
+    with tabs[7]:
+        st.subheader("Masovna Simulacija (Sweeps)")
+        st.markdown("Ovdje možete pokrenuti simulaciju za niz SNR i CFO vrijednosti i dobiti tabelu rezultata.")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            sw_snr_start = st.number_input("SNR Start (dB)", -20.0, 30.0, -10.0)
+            sw_snr_end = st.number_input("SNR End (dB)", -20.0, 30.0, 10.0)
+            sw_snr_step = st.number_input("SNR Step", 1.0, 10.0, 2.0)
+        with c2:
+            sw_cfo_start = st.number_input("CFO Start (Hz)", -2000.0, 2000.0, 0.0)
+            sw_cfo_end = st.number_input("CFO End (Hz)", -2000.0, 2000.0, 1000.0)
+            sw_cfo_step = st.number_input("CFO Step", 100.0, 1000.0, 500.0)
+            
+        if st.button("Pokreni Sweep Analizu"):
+            snr_vals = np.arange(sw_snr_start, sw_snr_end + 0.1, sw_snr_step)
+            cfo_vals = np.arange(sw_cfo_start, sw_cfo_end + 0.1, sw_cfo_step)
+            
+            results_list = []
+            
+            progress_bar = st.progress(0)
+            total_iter = len(snr_vals) * len(cfo_vals)
+            curr_iter = 0
+            
+            # Čuvamo originalnu konfiguraciju
+            orig_cfg = st.session_state["cfg"]
+            
+            for s in snr_vals:
+                for f_off in cfo_vals:
+                    # Kreiramo privremeni config sa omogućenim kanalom za sweep
+                    temp_ch = ChannelConfig(True, float(f_off), float(s), 42, 0.0)
+                    temp_cfg = RunConfig(orig_cfg.tx, temp_ch, orig_cfg.rx)
+                    
+                    try:
+                        r = run_simulation(temp_cfg)
+                        rx_r = r.get('rx_result')
+                        
+                        crc_status = "OK" if (rx_r and rx_r.crc_ok) else "FAIL"
+                        
+                        ber = 1.0
+                        if rx_r and rx_r.mib_bits is not None:
+                             tx_b_sw = res['mib_tx']
+                             if isinstance(tx_b_sw, str): tx_b_sw = [int(x) for x in tx_b_sw]
+                             tx_b_sw = np.array(tx_b_sw).flatten()
+                             
+                             rx_b_sw = rx_r.mib_bits
+                             if isinstance(rx_b_sw, str): rx_b_sw = [int(x) for x in rx_b_sw]
+                             rx_b_sw = np.array(rx_b_sw).flatten()
+                             
+                             if len(tx_b_sw) == len(rx_b_sw):
+                                 ber = np.mean(tx_b_sw != rx_b_sw)
+                        
+                        pss_peak = 0.0
+                        if r.get('pss_corr') is not None:
+                            pss_peak = np.max(np.abs(r['pss_corr']))
+                        
+                        cfo_est_val = rx_r.cfo_hat if (rx_r and rx_r.cfo_hat is not None) else np.nan
+                        
+                        results_list.append({
+                            "SNR (dB)": s,
+                            "CFO (Hz)": f_off,
+                            "CRC": crc_status,
+                            "BER": ber,
+                            "PSS Peak": pss_peak,
+                            "CFO Est (Hz)": cfo_est_val
+                        })
+                    except Exception as e:
+                        pass
+                    
+                    curr_iter += 1
+                    progress_bar.progress(curr_iter / total_iter)
+            
+            df_res = pd.DataFrame(results_list)
+            st.success("Analiza završena!")
+            
+            st.write("### 1. Tabela Rezultata")
+            try:
+                st.dataframe(df_res.style.format({
+                    "SNR (dB)": "{:.1f}", 
+                    "CFO (Hz)": "{:.1f}", 
+                    "BER": "{:.4f}", 
+                    "PSS Peak": "{:.2f}",
+                    "CFO Est (Hz)": "{:.1f}" 
+                }, na_rep="-"))
+            except Exception as e:
+                st.error(f"Greška pri formatiranju tabele: {e}")
+                st.dataframe(df_res) 
+
+            if not df_res.empty and len(snr_vals) > 1 and len(cfo_vals) > 1:
+                st.write("### 2. BER Heatmap (Vizualizacija)")
+                st.caption("Crveno = Visok BER (Loše), Zeleno/Plavo = Nizak BER (Dobro)")
+                
+                try:
+                    pivot_ber = df_res.pivot(index="SNR (dB)", columns="CFO (Hz)", values="BER")
+                    
+                    fig_h, ax_h = plt.subplots(figsize=(10, 6))
+                    im = ax_h.imshow(pivot_ber, cmap="RdYlGn_r", aspect='auto', vmin=0, vmax=0.5, origin='lower')
+                    
+                    ax_h.set_xticks(np.arange(len(pivot_ber.columns)))
+                    ax_h.set_xticklabels([f"{x:.0f}" for x in pivot_ber.columns], rotation=45)
+                    ax_h.set_yticks(np.arange(len(pivot_ber.index)))
+                    ax_h.set_yticklabels([f"{x:.1f}" for x in pivot_ber.index])
+                    
+                    ax_h.set_xlabel("CFO (Hz)")
+                    ax_h.set_ylabel("SNR (dB)")
+                    ax_h.set_title("Bit Error Rate (BER) Performance")
+                    
+                    cbar = fig_h.colorbar(im, ax=ax_h)
+                    cbar.set_label("BER")
+                    
+                    st.pyplot(fig_h)
+                except Exception as e:
+                    st.warning(f"Nije moguće iscrtati heatmap (vjerovatno nedovoljno podataka): {e}")
