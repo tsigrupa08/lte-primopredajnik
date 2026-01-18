@@ -38,20 +38,30 @@ telekomunikacionih sistema i eksperimentisanje sa LTE protokolima.
 
 ---
 
-## Struktura projekta
+### Opis direktorija
 
-```text
-lte-primopredajnik/
-├─ channel/
-├─ common/
-├─ docs/
-├─ examples/
-├─ gui/
-├─ LTE_system_/
-├─ receiver/
-├─ tests/
-└─ transmitter/
-```
+- `transmitter/` – LTE predajnik: PSS generisanje, PBCH lanac, OFDM modulacija  
+- `channel/` – Model kanala (AWGN, CFO)  
+- `receiver/` – LTE prijemnik: sinhronizacija, demodulacija, dekodiranje  
+- `LTE_system_/` – End-to-end LTE sistem (TX → Channel → RX integracija)  
+- `common/` – Zajedničke util funkcije, konstante i pomoćni moduli  
+- `tests/` – Unit i end-to-end testovi (pytest)  
+- `examples/` – Primjeri korištenja i demonstracione skripte  
+- `gui/` – Grafički interfejs za vizualizaciju i interaktivno pokretanje  
+- `docs/` – Tehnička dokumentacija i reference
+- 
+## Tok obrade signala (workflow)
+
+1. Generisanje PBCH/MIB informacija  
+2. Kodiranje (CRC + konvolucijsko kodiranje)  
+3. QPSK modulacija i mapiranje u resursni grid  
+4. OFDM modulacija (IFFT + CP)  
+5. Prolazak kroz kanal (AWGN + CFO)  
+6. PSS sinhronizacija i procjena frekvencijskog ofseta  
+7. OFDM demodulacija (CP removal + FFT)  
+8. Ekstrakcija PBCH simbola  
+9. Demapiranje i dekodiranje (Viterbi + CRC)  
+10. Evaluacija ispravnosti prijema (CRC, BER)
 
 
 ## Trenutno stanje projekta
