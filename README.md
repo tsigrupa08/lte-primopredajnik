@@ -106,7 +106,7 @@ source .venv/bin/activate
 Nakon kreiranja i aktivacije virtualnog okruženja, potrebno je instalirati sve Python biblioteke koje projekat koristi. Spisak zavisnosti definisan je u fajlu
 equirements.txt.
 
-pip install -r requirements.txt
+- pip install -r requirements.txt
   
 ## Pokretanje GUI aplikacije
 
@@ -117,9 +117,6 @@ GUI aplikacija omogućava interaktivno pokretanje LTE TX → Channel → RX lanc
 Prije pokretanja GUI aplikacije potrebno je aktivirati virtualno okruženje u kojem su instalirane sve zavisnosti projekta.
 
 ## Testiranje
-
-pytest` okvira i obuhvata provjeru
-ispravnosti pojedinačnih LTE blokova, kao i kompletnog end-to-end sistema.
 
 ### Vrste testova
 **Unit testovi**
