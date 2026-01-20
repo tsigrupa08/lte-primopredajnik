@@ -20,11 +20,10 @@ from __future__ import annotations
 
 import sys
 import time
+import io  
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple, Dict, Any, List
-
-# Dodani importi za nove funkcionalnosti
+from typing import Optional, Tuple, Dict, Any
 import pandas as pd
 from scipy import signal 
 
@@ -61,6 +60,14 @@ except ImportError as e:
     st.stop()
 
 # 2. HELPER FUNKCIJE (VISUALIZATION & UTILS)
+
+#  Funkcija za konverziju slike u bytes (za Download) 
+def fig_to_png_bytes(fig):
+    """Konvertuje Matplotlib figuru u bytes za download dugme."""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches='tight')
+    buf.seek(0)
+    return buf
 
 def generate_resource_map(grid_shape: Tuple[int, int], 
                           ndlrb: int, 
@@ -229,7 +236,7 @@ def draw_bit_comparison(tx_bits: np.ndarray, rx_bits: np.ndarray, title: str = "
     None
         Funkcija direktno iscrtava grafik koristeći `st.pyplot()`.
     """
-    # 1. Robustno pretvaranje u numpy nizove (Handling Strings/Lists/Arrays)
+    # 1. Pretvaranje u numpy nizove (Handling Strings/Lists/Arrays)
     if isinstance(tx_bits, str): tx_bits = [int(x) for x in tx_bits]
     if isinstance(rx_bits, str): rx_bits = [int(x) for x in rx_bits]
     
@@ -583,7 +590,7 @@ run_btn = st.sidebar.button("POKRENI SIMULACIJU", type="primary")
 cfg = RunConfig(
     tx=TxConfig(ndlrb, normal_cp, num_subframes, n_id_2, pbch_on, mib_mode, seed, mib_man),
     ch=ChannelConfig(channel_enabled, cfo_hz, snr_db, seed, 0.0),
-    rx=RxConfig(rx_enabled, rx_corr, rx_descramble, rx_norm_pss)
+    rx=RxConfig(rx_enabled, rx_corr, rx_descramble, rx_norm_pss) # Koristi rx_descramble
 )
 
 # --- POKRETANJE SIMULACIJE ---
@@ -652,8 +659,9 @@ if "res" in st.session_state:
         "RX: PSS Sync", 
         "RX: EVM & Constellation", 
         "RX: Bits", 
-        "Waveform & Spectrum", 
-        "Sweeps"               
+        "Waveform", 
+        "Spectrum",    
+        "Sweeps"        
     ])
 
     # --- TAB 1: OVERVIEW ---
@@ -868,12 +876,10 @@ if "res" in st.session_state:
                  # Ovo omogućava prikaz "Crvenih X-ova" čak i kad je signal uništen
                  rx_b = np.random.randint(0, 2, size=len(tx_b))
                  sync_failed = True
-            
+
             st.subheader("Vizualizacija Grešaka u Bitovima")
-            
             st.caption("Poređenje poslatih (TX) i primljenih (RX) bitova MIB poruke.")
             
-            # Izračun BER-a
             if len(tx_b) == len(rx_b):
                 ber = np.mean(tx_b != rx_b)
                 num_errs = np.sum(tx_b != rx_b)
@@ -881,13 +887,11 @@ if "res" in st.session_state:
                 ber = 1.0
                 num_errs = len(tx_b)
             
-            # Poruka o statusu
             if num_errs == 0 and not sync_failed:
                 st.success(f"Perfect Reception! BER: {ber:.4f}")
             else:
                 st.error(f"Errors Detected! BER: {ber:.4f} ({num_errs} grešaka od {len(tx_b)} bitova)")
             
-            # Vizualizacija
             draw_bit_comparison(tx_b, rx_b, title="MIB Bit Comparison (TX vs RX)")
             
             with st.expander("Prikaži sirove podatke (Raw Bits)"):
@@ -898,50 +902,120 @@ if "res" in st.session_state:
                     st.code(f"{rx_out.mib_bits}")
                 else:
                     st.write("RX Bitovi: N/A (Sync Failed - Noise displayed above)")
-                 
-        else: st.info("RX isključen ili PBCH nije omogućen.")
-        
-    # --- TAB 7: WAVEFORM & SPECTRUM ---
-    with tabs[6]:
-        st.subheader("Analiza Signala: Vrijeme & Frekvencija")
-        
-        tx_sig = res['tx_waveform']
-        rx_sig = res['rx_waveform']
-        fs = res['fs']
-        
-        st.write("**Vremenski Domen**")
-        fig_w, ax_w = plt.subplots(figsize=(10, 3))
-        t_ms = np.arange(len(tx_sig)) / fs * 1000
-        limit = min(2000, len(tx_sig))
-        
-        ax_w.plot(t_ms[:limit], np.real(tx_sig[:limit]), label='TX (Real)', alpha=0.8)
-        if c.ch.enabled or True: 
-            ax_w.plot(t_ms[:limit], np.real(rx_sig[:limit]), label='RX (Real)', alpha=0.5)
-        ax_w.set_xlabel("Time (ms)")
-        ax_w.set_ylabel("Amplitude")
-        ax_w.set_title("Waveform (Prvih 2000 uzoraka)")
-        ax_w.legend()
-        ax_w.grid(True, alpha=0.3)
-        st.pyplot(fig_w)
-        
-        st.write("**Frekvencijski Domen (PSD)**")
-        fig_s, ax_s = plt.subplots(figsize=(10, 4))
-        
-        f_tx, Pxx_tx = signal.welch(tx_sig, fs, nperseg=1024, return_onesided=False)
-        ax_s.semilogy(np.fft.fftshift(f_tx)/1e6, np.fft.fftshift(Pxx_tx), label='TX Spectrum')
-        
-        f_rx, Pxx_rx = signal.welch(rx_sig, fs, nperseg=1024, return_onesided=False)
-        ax_s.semilogy(np.fft.fftshift(f_rx)/1e6, np.fft.fftshift(Pxx_rx), label='RX Spectrum', alpha=0.7)
-        
-        ax_s.set_xlabel("Frequency (MHz)")
-        ax_s.set_ylabel("PSD (V**2/Hz)")
-        ax_s.set_title("Power Spectral Density")
-        ax_s.legend()
-        ax_s.grid(True, alpha=0.3)
-        st.pyplot(fig_s)
+        else:
+            st.info("RX isključen ili PBCH nije omogućen.")
 
-    # --- TAB 8: SWEEPS ---
+
+    # Tab 7: Time waveform (TX i RX odvojeno)
+    with tabs[6]:
+        st.subheader("Waveform")
+
+        if res is None:
+            st.info("Prvo pokreni pipeline.")
+        else:
+            tx_w = res["tx_waveform"]
+            rx_w = res["rx_waveform"]
+
+            # Zoom kontrola
+            max_start = max(0, tx_w.size - 1)
+            start_idx = st.slider("Start sample", 0, max_start, 0, key="time_start")
+            win_len = st.slider("Window length", 200, min(50000, tx_w.size), 5000, step=100, key="time_win")
+            end_idx = min(tx_w.size, start_idx + win_len)
+
+            seg_tx = tx_w[start_idx:end_idx]
+            seg_rx = rx_w[start_idx:end_idx]
+            x = np.arange(start_idx, end_idx)
+
+            fig, axs = plt.subplots(2, 2, figsize=(12, 7), sharex=True)
+
+            # --- TX ---
+            axs[0, 0].plot(x, np.real(seg_tx))
+            axs[0, 0].set_title("TX real")
+            axs[0, 0].set_ylabel("amplitude")
+            axs[0, 0].grid(True, alpha=0.3)
+
+            axs[0, 1].plot(x, np.abs(seg_tx))
+            axs[0, 1].set_title("|TX|")
+            axs[0, 1].grid(True, alpha=0.3)
+
+            # --- RX ---
+            axs[1, 0].plot(x, np.real(seg_rx))
+            axs[1, 0].set_title("RX real")
+            axs[1, 0].set_xlabel("sample index")
+            axs[1, 0].set_ylabel("amplitude")
+            axs[1, 0].grid(True, alpha=0.3)
+
+            axs[1, 1].plot(x, np.abs(seg_rx))
+            axs[1, 1].set_title("|RX|")
+            axs[1, 1].set_xlabel("sample index")
+            axs[1, 1].grid(True, alpha=0.3)
+
+            
+            plt.tight_layout()
+            st.pyplot(fig)
+
+        
+
+            st.download_button(
+                "Download (PNG)",
+                data=fig_to_png_bytes(fig),
+                file_name="time_tx_rx_separate_subplots.png",
+                mime="image/png",
+            )
+
+    # Tab 8: Spectrum (subplots)
     with tabs[7]:
+        st.subheader("Spectrum ")
+
+        if res is None:
+            st.info("Prvo pokreni pipeline.")
+        else:
+            fs = float(res["fs"])
+            tx_w = res["tx_waveform"]
+            rx_w = res["rx_waveform"]
+
+            # Segment za FFT
+            start_idx = st.slider("FFT segment start", 0, max(0, tx_w.size - 1), 0, key="spec_start")
+            seg_len = st.selectbox("FFT segment length", [1024, 2048, 4096, 8192, 16384], index=2, key="spec_len")
+            start_idx = min(start_idx, max(0, tx_w.size - seg_len))
+
+            seg_tx = tx_w[start_idx:start_idx + seg_len]
+            seg_rx = rx_w[start_idx:start_idx + seg_len]
+
+            S_tx = np.fft.fftshift(np.fft.fft(seg_tx))
+            S_rx = np.fft.fftshift(np.fft.fft(seg_rx))
+            f = np.fft.fftshift(np.fft.fftfreq(seg_len, d=1.0 / fs))
+
+            mag_tx_db = 20 * np.log10(np.abs(S_tx) + 1e-12)
+            mag_rx_db = 20 * np.log10(np.abs(S_rx) + 1e-12)
+
+            fig, axs = plt.subplots(2, 1, figsize=(12, 7), sharex=True)
+
+            axs[0].plot(f, 20*np.log10(np.abs(S_tx)+1e-12), color='#1f77b4')
+            axs[0].set_title("TX |FFT| (dB)")
+            axs[0].set_ylabel("dB")
+            axs[0].grid(True, alpha=0.3)
+
+            axs[1].plot(f, 20*np.log10(np.abs(S_rx)+1e-12), color='#ff7f0e')
+            axs[1].set_title("RX |FFT| (dB)")
+            axs[1].set_xlabel("frequency [Hz]")
+            axs[1].set_ylabel("dB")
+            axs[1].grid(True, alpha=0.3)
+
+            
+            plt.tight_layout()
+            st.pyplot(fig)
+
+
+            st.download_button(
+                "Download spectrum (PNG)",
+                data=fig_to_png_bytes(fig),
+                file_name="spectrum_subplots.png",
+                mime="image/png",
+            )
+
+    # --- TAB 9: SWEEPS ---
+    with tabs[8]:
         st.subheader("Masovna Simulacija (Sweeps)")
         st.markdown("Ovdje možete pokrenuti simulaciju za niz SNR i CFO vrijednosti i dobiti tabelu rezultata.")
         
@@ -965,7 +1039,6 @@ if "res" in st.session_state:
             total_iter = len(snr_vals) * len(cfo_vals)
             curr_iter = 0
             
-            # Čuvamo originalnu konfiguraciju
             orig_cfg = st.session_state["cfg"]
             
             for s in snr_vals:
