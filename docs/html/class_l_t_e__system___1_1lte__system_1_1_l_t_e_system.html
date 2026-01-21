@@ -97,7 +97,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a0694a60f532878e2aa71b31cf9c31c18" id="r_a0694a60f532878e2aa71b31cf9c31c18"><td class="memItemLeft" align="right" valign="top"><a id="a0694a60f532878e2aa71b31cf9c31c18" name="a0694a60f532878e2aa71b31cf9c31c18"></a>
 None&#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, tx, ch, rx)</td></tr>
 <tr class="memitem:aef54bdffaf1a0998d724d6889149c41d" id="r_aef54bdffaf1a0998d724d6889149c41d"><td class="memItemLeft" align="right" valign="top">None&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aef54bdffaf1a0998d724d6889149c41d">reset</a> (self)</td></tr>
-<tr class="memitem:a1e4c6a8c6f9c2468f0ff01a624e5e544" id="r_a1e4c6a8c6f9c2468f0ff01a624e5e544"><td class="memItemLeft" align="right" valign="top">Dict[str, Any]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1e4c6a8c6f9c2468f0ff01a624e5e544">run</a> (self, Sequence[int] mib_bits, Optional[np.ndarray] reserved_re_mask=None, bool reset_channel=True, bool keep_debug=True)</td></tr>
+<tr class="memitem:a96012b4f50b2994301e6e6e905874172" id="r_a96012b4f50b2994301e6e6e905874172"><td class="memItemLeft" align="right" valign="top">Dict[str, Any]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a96012b4f50b2994301e6e6e905874172">run</a> (self, Sequence[int] mib_bits, Optional[np.ndarray] reserved_re_mask=None, bool reset_channel=True, bool keep_debug=True, bool count_all_if_rx_missing=True)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -111,30 +111,14 @@ Public Attributes</h2></td></tr>
 <tr class="heading"><td colspan="2"><h2 id="header-pro-static-methods" class="groupheader"><a id="pro-static-methods" name="pro-static-methods"></a>
 Static Protected Member Functions</h2></td></tr>
 <tr class="memitem:acef48ba21c28013012a42a9d664e6cab" id="r_acef48ba21c28013012a42a9d664e6cab"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acef48ba21c28013012a42a9d664e6cab">_to_bits_01</a> (Sequence[int] bits)</td></tr>
-<tr class="memitem:a63529f11077b867e7ce5675ba5c3c63c" id="r_a63529f11077b867e7ce5675ba5c3c63c"><td class="memItemLeft" align="right" valign="top">tuple[Optional[int], Optional[float]]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a63529f11077b867e7ce5675ba5c3c63c">_compute_bit_errors</a> (np.ndarray tx_bits, Optional[np.ndarray] rx_bits)</td></tr>
+<tr class="memitem:a6ccd68c6c1ed31d45e0fbc0e10d51863" id="r_a6ccd68c6c1ed31d45e0fbc0e10d51863"><td class="memItemLeft" align="right" valign="top">Tuple[Optional[int], Optional[float]]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6ccd68c6c1ed31d45e0fbc0e10d51863">_compute_bit_errors</a> (np.ndarray tx_bits, Optional[np.ndarray] rx_bits, bool count_all_if_missing=True)</td></tr>
+<tr class="memitem:a023807dd9aefeee06b9259f001cd311d" id="r_a023807dd9aefeee06b9259f001cd311d"><td class="memItemLeft" align="right" valign="top">Tuple[Optional[np.ndarray], bool, Optional[int], Optional[int], Optional[float], Dict[str, Any]]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a023807dd9aefeee06b9259f001cd311d">_rx_unpack</a> (Any rx_out)</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><pre class="fragment">Kompozitni LTE sistem (TX + Channel + RX).
-
-Klasa objedinjuje postojeće TX, Channel i RX module
-i omogućava jednostavno pokretanje kompletne
-end-to-end LTE simulacije jednim pozivom.
-
-Parameters
-----------
-tx : LTETxChain
-    LTE predajni lanac (OFDM modulacija, PSS, PBCH).
-
-ch : LTEChannel
-    Kanal koji modelira frekvencijski ofset (CFO)
-    i aditivni bijeli Gaussov šum (AWGN).
-
-rx : LTERxChain
-    LTE prijemni lanac (PSS sinkronizacija,
-    OFDM demodulacija, PBCH dekodiranje, CRC).
 </pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
-<a id="a63529f11077b867e7ce5675ba5c3c63c" name="a63529f11077b867e7ce5675ba5c3c63c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a63529f11077b867e7ce5675ba5c3c63c">&#9670;&#160;</a></span>_compute_bit_errors()</h2>
+<a id="a6ccd68c6c1ed31d45e0fbc0e10d51863" name="a6ccd68c6c1ed31d45e0fbc0e10d51863"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a6ccd68c6c1ed31d45e0fbc0e10d51863">&#9670;&#160;</a></span>_compute_bit_errors()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -143,15 +127,19 @@ rx : LTERxChain
   <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"> tuple[Optional[int], Optional[float]] LTE_system_.lte_system.LTESystem._compute_bit_errors </td>
+          <td class="memname"> Tuple[Optional[int], Optional[float]] LTE_system_.lte_system.LTESystem._compute_bit_errors </td>
           <td>(</td>
           <td class="paramtype">np.ndarray</td>          <td class="paramname"><span class="paramname"><em>tx_bits</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Optional[np.ndarray]
-    </td>          <td class="paramname"><span class="paramname"><em>rx_bits</em></span>&#160;)</td>
+          <td class="paramtype">Optional[np.ndarray]</td>          <td class="paramname"><span class="paramname"><em>rx_bits</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>count_all_if_missing</em></span><span class="paramdefsep"> = </span><span class="paramdefval">True</span>&#160;)</td>
         </tr>
       </table>
   </td>
@@ -162,10 +150,37 @@ rx : LTERxChain
 </div><div class="memdoc">
 <pre class="fragment">Računa broj bitnih grešaka i BER.
 
-Returns
--------
-bit_errors : int or None
-ber : float or None
+Ako rx_bits ne postoji (npr. CRC fail), možeš:
+  - count_all_if_missing=True  -&gt; tretiraj kao 24/24 grešaka (BER=1)
+  - count_all_if_missing=False -&gt; vrati None, None
+</pre> 
+</div>
+</div>
+<a id="a023807dd9aefeee06b9259f001cd311d" name="a023807dd9aefeee06b9259f001cd311d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a023807dd9aefeee06b9259f001cd311d">&#9670;&#160;</a></span>_rx_unpack()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname"> Tuple[Optional[np.ndarray], bool, Optional[int], Optional[int], Optional[float], Dict[str, Any]] LTE_system_.lte_system.LTESystem._rx_unpack </td>
+          <td>(</td>
+          <td class="paramtype">Any</td>          <td class="paramname"><span class="paramname"><em>rx_out</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel static">static</span><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<pre class="fragment">Podržava:
+  - RxResult dataclass (rx_out.mib_bits, rx_out.crc_ok, rx_out.n_id_2_hat, rx_out.tau_hat, rx_out.cfo_hat, rx_out.debug)
+  - dict (ključevi 'mib_bits', 'crc_ok', ...)
 </pre> 
 </div>
 </div>
@@ -191,18 +206,7 @@ ber : float or None
   </tr>
 </table>
 </div><div class="memdoc">
-<pre class="fragment">Validira i konvertuje MIB bitove u niz 0/1.
-
-Parameters
-----------
-bits : Sequence[int]
-    Ulazni bitovi.
-
-Returns
--------
-np.ndarray
-    Niz dužine 24 sa vrijednostima 0 ili 1.
-</pre> 
+<pre class="fragment">Validira i konvertuje MIB bitove u niz 0/1 dužine 24.</pre> 
 </div>
 </div>
 <a id="aef54bdffaf1a0998d724d6889149c41d" name="aef54bdffaf1a0998d724d6889149c41d"></a>
@@ -219,12 +223,11 @@ np.ndarray
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Resetuje interni state kanala (npr. brojač uzoraka za CFO).
-</pre> 
+<pre class="fragment">Resetuje interni state kanala (npr. brojač uzoraka za CFO).</pre> 
 </div>
 </div>
-<a id="a1e4c6a8c6f9c2468f0ff01a624e5e544" name="a1e4c6a8c6f9c2468f0ff01a624e5e544"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a1e4c6a8c6f9c2468f0ff01a624e5e544">&#9670;&#160;</a></span>run()</h2>
+<a id="a96012b4f50b2994301e6e6e905874172" name="a96012b4f50b2994301e6e6e905874172"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a96012b4f50b2994301e6e6e905874172">&#9670;&#160;</a></span>run()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -252,39 +255,16 @@ np.ndarray
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>keep_debug</em></span><span class="paramdefsep"> = </span><span class="paramdefval">True</span>&#160;)</td>
+          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>keep_debug</em></span><span class="paramdefsep"> = </span><span class="paramdefval">True</span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>count_all_if_rx_missing</em></span><span class="paramdefsep"> = </span><span class="paramdefval">True</span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
 <pre class="fragment">Pokreće kompletnu end-to-end LTE simulaciju.
-
-Parameters
-----------
-mib_bits : Sequence[int]
-    MIB informacijski bitovi (24 bita).
-
-reserved_re_mask : np.ndarray, optional
-    Bool maska rezervisanih resource elemenata
-    za TX mapiranje.
-
-reset_channel : bool, optional
-    Ako je True, resetuje kanal prije simulacije.
-
-keep_debug : bool, optional
-    Ako je True, vraća detaljne RX debug informacije.
-
-Returns
--------
-results : dict
-    Rječnik sa signalima i metrikama sistema:
-    - tx_waveform
-    - rx_waveform
-    - mib_bits_tx, mib_bits_rx
-    - crc_ok
-    - bit_errors, ber
-    - detected_nid, tau_hat, cfo_hat_hz
-    - pss_metric
-    - debug
 </pre> 
 </div>
 </div>

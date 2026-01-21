@@ -105,28 +105,27 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>ndlrb</b> = 6</td></tr
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>normal_cp</b> = True</td></tr>
 <tr class="memitem:a1d77e084f76316f125679963902ad090" id="r_a1d77e084f76316f125679963902ad090"><td class="memItemLeft" align="right" valign="top"><a id="a1d77e084f76316f125679963902ad090" name="a1d77e084f76316f125679963902ad090"></a>
 Optional&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_symbol_indices</b> = None</td></tr>
-<tr class="memitem:a531922b8f729b363c43bcd2a19249e2e" id="r_a531922b8f729b363c43bcd2a19249e2e"><td class="memItemLeft" align="right" valign="top"><a id="a531922b8f729b363c43bcd2a19249e2e" name="a531922b8f729b363c43bcd2a19249e2e"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_symbols_per_subframe</b> = 240</td></tr>
+<tr class="memitem:af0263c5fa81b2a487c2b0e6607775e59" id="r_af0263c5fa81b2a487c2b0e6607775e59"><td class="memItemLeft" align="right" valign="top"><a id="af0263c5fa81b2a487c2b0e6607775e59" name="af0263c5fa81b2a487c2b0e6607775e59"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_symbols_to_extract</b> = 240</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">Konfiguracija za ekstrakciju PBCH-a.
+<div class="textblock"><pre class="fragment">Konfiguracija ekstrakcije.
 
-Parameters
-----------
-ndlrb : int
-    Broj downlink resource blokova (NDLRB). Za LTE sistem širine
-    1,4 MHz ta vrijednost je 6. PBCH uvijek zauzima centralnih šest
-    RB-ova, neovisno o ukupnoj širini opsega, ali `ndlrb` je potreban
-    da bi se odredila ukupna širina grida.
-normal_cp : bool
-    True za normalni ciklički prefiks (14 OFDM simbola po podokviru).
-    Prošireni CP trenutno nije implementiran.
-pbch_symbol_indices : list[int] | None
-    Indeksi OFDM simbola u gridu koji nose PBCH. Ako je None, za normal
-    CP se uzima [7, 8, 9, 10].
-pbch_symbols_per_subframe : int
-    Broj PBCH QPSK simbola po podokviru u pojednostavljenoj TX shemi.
-    U ovom projektu je to 240.
+ndlrb:
+    Ukupan broj DL RB u gridu (za 1.4 MHz je 6).
+    Koristi se samo za sanity-check; realno se sve može zaključiti iz grid.shape.
+normal_cp:
+    True -&gt; 14 simbola/subfrejm, False -&gt; 12 simbola/subfrejm.
+pbch_symbol_indices:
+    Globalni indeksi OFDM simbola (kolone) iz kojih se vadi PBCH.
+    Ako je None:
+        normal_cp -&gt; [7,8,9,10]
+        extended  -&gt; [6,7,8,9]
+pbch_symbols_to_extract:
+    TAČAN broj PBCH QPSK simbola koji želiš izvući.
+    - za 1 subfrejm (tvoj chunk): 240
+    - za 4 subfrejma (tvoj puni PBCH): 960
+    - za N subfrejmova: 240*N
 </pre> </div><hr/>The documentation for this class was generated from the following file:<ul>
 <li>receiver/<b>resource_grid_extractor.py</b></li>
 </ul>

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['zavisnosti_0',['Instalacija zavisnosti',['../md__r_e_a_d_m_e.html#autotoc_md16',1,'']]]
+  ['workflow_0',['Tok obrade signala (workflow)',['../md__r_e_a_d_m_e.html#autotoc_md11',1,'']]]
 ];

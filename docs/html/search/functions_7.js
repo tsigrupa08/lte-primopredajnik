@@ -1,4 +1,7 @@
 var searchData=
 [
-  ['lin2db_0',['lin2db',['../classreceiver_1_1utils_1_1_rx_utils.html#a41d036f657d464db0af01f3c43940cdb',1,'receiver::utils::RxUtils']]]
+  ['generate_0',['generate',['../classtransmitter_1_1pss_1_1_p_s_s_generator.html#ae524f9553f2faf5a51e410ad8b7e9673',1,'transmitter::pss::PSSGenerator']]],
+  ['generate_5fresource_5fmap_1',['generate_resource_map',['../namespacegui_1_1gui__tx__channel__rx.html#af59a4b6a3a89dbfbf7e294a1137b8d7a',1,'gui::gui_tx_channel_rx']]],
+  ['generate_5fwaveform_2',['generate_waveform',['../classtransmitter_1_1_l_t_e_tx_chain_1_1_l_t_e_tx_chain.html#ade4d47bbc3901684566351b5f80b52cb',1,'transmitter::LTETxChain::LTETxChain']]],
+  ['gold_5fsequence_5fpbch_3',['gold_sequence_pbch',['../classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html#a07abbc64e75264223e46eca9b01b89cc',1,'transmitter::pbch::PBCHEncoder']]]
 ];

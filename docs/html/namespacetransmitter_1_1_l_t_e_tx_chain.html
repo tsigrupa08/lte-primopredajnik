@@ -123,14 +123,6 @@ Ovaj modul implementira pojednostavljeni LTE downlink predajni lanac:
 - MIB (24 bita) -&gt; PBCH enkodiranje -&gt; QPSK simboli
 - Mapiranje PBCH simbola u resource grid
 - OFDM modulacija (IFFT + CP)
-
-Napomena
---------
-Ovaj projekat koristi pojednostavljeni pristup PBCH mapiranju:
-- PBCH enkoder proizvodi 960 QPSK simbola (1920 bita -&gt; 960 QPSK).
-- Ovi 960 simbola se mapiraju kao 4 bloka po 240 simbola kroz 4 subfrejma.
-  (240 simbola po subfrejmu je tipično za PBCH regiju nakon izostavljanja nekih RE,
-   ali ovdje mapiramo sekvencijalno bez CRS maske osim ako je ne proslijediš.)
 </pre> </div></div><!-- contents -->
 </div><!-- doc-content -->
 <div id="page-nav" class="page-nav-panel">
