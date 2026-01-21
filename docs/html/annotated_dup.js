@@ -12,16 +12,11 @@ var annotated_dup =
       ] ]
     ] ],
     [ "gui", null, [
-      [ "gui-tx", null, [
-        [ "LTEGuiApp", "classgui_1_1gui-tx_1_1_l_t_e_gui_app.html", null ]
-      ] ],
-      [ "gui_tx_channel", null, [
-        [ "TxConfig", "classgui_1_1gui__tx__channel_1_1_tx_config.html", null ],
-        [ "ChannelConfig", "classgui_1_1gui__tx__channel_1_1_channel_config.html", null ],
-        [ "RunConfig", "classgui_1_1gui__tx__channel_1_1_run_config.html", null ]
-      ] ],
-      [ "tx_gui", "namespacegui_1_1tx__gui.html", [
-        [ "TxGuiApp", "classgui_1_1tx__gui_1_1_tx_gui_app.html", "classgui_1_1tx__gui_1_1_tx_gui_app" ]
+      [ "gui_tx_channel_rx", "namespacegui_1_1gui__tx__channel__rx.html", [
+        [ "TxConfig", "classgui_1_1gui__tx__channel__rx_1_1_tx_config.html", null ],
+        [ "ChannelConfig", "classgui_1_1gui__tx__channel__rx_1_1_channel_config.html", null ],
+        [ "RxConfig", "classgui_1_1gui__tx__channel__rx_1_1_rx_config.html", null ],
+        [ "RunConfig", "classgui_1_1gui__tx__channel__rx_1_1_run_config.html", null ]
       ] ]
     ] ],
     [ "LTE_system_", null, [
@@ -34,13 +29,14 @@ var annotated_dup =
       [ "crc_checker", "namespacereceiver_1_1crc__checker.html", [
         [ "CRCChecker", "classreceiver_1_1crc__checker_1_1_c_r_c_checker.html", "classreceiver_1_1crc__checker_1_1_c_r_c_checker" ]
       ] ],
-      [ "de_rate_matching", null, [
-        [ "DeRateMatcher", "classreceiver_1_1de__rate__matching_1_1_de_rate_matcher.html", "classreceiver_1_1de__rate__matching_1_1_de_rate_matcher" ]
+      [ "de_rate_matching", "namespacereceiver_1_1de__rate__matching.html", [
+        [ "DeRateMatcherPBCH", "classreceiver_1_1de__rate__matching_1_1_de_rate_matcher_p_b_c_h.html", "classreceiver_1_1de__rate__matching_1_1_de_rate_matcher_p_b_c_h" ]
       ] ],
       [ "LTERxChain", null, [
+        [ "RxResult", "classreceiver_1_1_l_t_e_rx_chain_1_1_rx_result.html", null ],
         [ "LTERxChain", "classreceiver_1_1_l_t_e_rx_chain_1_1_l_t_e_rx_chain.html", "classreceiver_1_1_l_t_e_rx_chain_1_1_l_t_e_rx_chain" ]
       ] ],
-      [ "OFDM_demodulator", null, [
+      [ "OFDM_demodulator", "namespacereceiver_1_1_o_f_d_m__demodulator.html", [
         [ "OFDMDemodulator", "classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator.html", "classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator" ]
       ] ],
       [ "pss_sync", null, [
@@ -58,12 +54,15 @@ var annotated_dup =
         [ "RxUtils", "classreceiver_1_1utils_1_1_rx_utils.html", "classreceiver_1_1utils_1_1_rx_utils" ]
       ] ],
       [ "viterbi_decoder", null, [
-        [ "ViterbiDecoder", "classreceiver_1_1viterbi__decoder_1_1_viterbi_decoder.html", null ]
+        [ "ViterbiDecoder", "classreceiver_1_1viterbi__decoder_1_1_viterbi_decoder.html", "classreceiver_1_1viterbi__decoder_1_1_viterbi_decoder" ]
       ] ]
     ] ],
     [ "tests", null, [
       [ "test_crc_checker", null, [
         [ "TestCRCChecker", "classtests_1_1test__crc__checker_1_1_test_c_r_c_checker.html", "classtests_1_1test__crc__checker_1_1_test_c_r_c_checker" ]
+      ] ],
+      [ "test_lte_system_e2e", "namespacetests_1_1test__lte__system__e2e.html", [
+        [ "DummyRxResult", "classtests_1_1test__lte__system__e2e_1_1_dummy_rx_result.html", null ]
       ] ],
       [ "test_ofdm", null, [
         [ "TestOFDMModulator", "classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator.html", "classtests_1_1test__ofdm_1_1_test_o_f_d_m_modulator" ]

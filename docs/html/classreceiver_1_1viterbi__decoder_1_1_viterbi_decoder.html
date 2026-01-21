@@ -96,8 +96,7 @@ $(function(){initNavTree('classreceiver_1_1viterbi__decoder_1_1_viterbi_decoder.
 Public Member Functions</h2></td></tr>
 <tr class="memitem:ab89eec7797e16d68bd46ea6db03fc0fd" id="r_ab89eec7797e16d68bd46ea6db03fc0fd"><td class="memItemLeft" align="right" valign="top"><a id="ab89eec7797e16d68bd46ea6db03fc0fd" name="ab89eec7797e16d68bd46ea6db03fc0fd"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, constraint_len, generators, rate=1/2)</td></tr>
-<tr class="memitem:a3cfa680ebcd6ffa9b5fc7a6c53369644" id="r_a3cfa680ebcd6ffa9b5fc7a6c53369644"><td class="memItemLeft" align="right" valign="top"><a id="a3cfa680ebcd6ffa9b5fc7a6c53369644" name="a3cfa680ebcd6ffa9b5fc7a6c53369644"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>decode</b> (self, bits_or_soft)</td></tr>
+<tr class="memitem:ac38d9fcf2dfb3934767fe265c72dbcb2" id="r_ac38d9fcf2dfb3934767fe265c72dbcb2"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac38d9fcf2dfb3934767fe265c72dbcb2">decode</a> (self, bits_or_soft, bool tail_biting=False)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
@@ -114,39 +113,163 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>num_states</b> = 2 ** 
 <tr class="memitem:a946cbe55462047e6c4900ca47c2aa698" id="r_a946cbe55462047e6c4900ca47c2aa698"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a946cbe55462047e6c4900ca47c2aa698">taps</a></td></tr>
 <tr class="memitem:acf212b746d171102980c92991b689778" id="r_acf212b746d171102980c92991b689778"><td class="memItemLeft" align="right" valign="top"><a id="acf212b746d171102980c92991b689778" name="acf212b746d171102980c92991b689778"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>next_state</b> = np.zeros((self.num_states, 2), dtype=np.int32)</td></tr>
-<tr class="memitem:a9a98573d1a35743223d8a6fdc90fdae2" id="r_a9a98573d1a35743223d8a6fdc90fdae2"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a9a98573d1a35743223d8a6fdc90fdae2">output_bits</a></td></tr>
+<tr class="memitem:a9a98573d1a35743223d8a6fdc90fdae2" id="r_a9a98573d1a35743223d8a6fdc90fdae2"><td class="memItemLeft" align="right" valign="top"><a id="a9a98573d1a35743223d8a6fdc90fdae2" name="a9a98573d1a35743223d8a6fdc90fdae2"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>output_bits</b> = np.zeros((self.num_states, 2, self.n_out), dtype=np.int8)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pro-methods" class="groupheader"><a id="pro-methods" name="pro-methods"></a>
 Protected Member Functions</h2></td></tr>
-<tr class="memitem:a2a1c3cdd18eb1ae0dd8ef8588b406c0a" id="r_a2a1c3cdd18eb1ae0dd8ef8588b406c0a"><td class="memItemLeft" align="right" valign="top"><a id="a2a1c3cdd18eb1ae0dd8ef8588b406c0a" name="a2a1c3cdd18eb1ae0dd8ef8588b406c0a"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>_build_trellis</b> (self)</td></tr>
+<tr class="memitem:a2a1c3cdd18eb1ae0dd8ef8588b406c0a" id="r_a2a1c3cdd18eb1ae0dd8ef8588b406c0a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a2a1c3cdd18eb1ae0dd8ef8588b406c0a">_build_trellis</a> (self)</td></tr>
+<tr class="memitem:a651d43a5d526e3ab0957261a55f5942f" id="r_a651d43a5d526e3ab0957261a55f5942f"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a651d43a5d526e3ab0957261a55f5942f">_run_viterbi</a> (self, np.ndarray rcv, int start_state)</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><pre class="fragment">Hard-decision Viterbi dekoder za konvolucijske kodove.
 
-Dizajniran da zadovolji pytest testove:
-- nikad ne skraćuje izlaz
-- dekodira koliko god može
-- ne pretpostavlja tail-biting
-- ne pretpostavlja flush bitove
-</pre> </div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
-<a id="a9a98573d1a35743223d8a6fdc90fdae2" name="a9a98573d1a35743223d8a6fdc90fdae2"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a9a98573d1a35743223d8a6fdc90fdae2">&#9670;&#160;</a></span>output_bits</h2>
+Ova klasa implementira Viterbi algoritam za dekodiranje konvolucijski
+kodiranih bitova sa hard-odlukom (0/1). Posebno je prilagođena LTE PBCH
+lancu gdje se koristi **tail-biting** konvolucijsko kodiranje.
+
+LTE PBCH napomena:
+- Predajnik koristi tail-biting (nema flush bitova).
+- Početno stanje nije poznato unaprijed.
+- Dekoder traži start_state za koji važi: end_state == start_state
+  uz minimalnu putnu metriku.
+
+Parameters
+----------
+constraint_len : int
+    Dužina ograničenja konvolucijskog koda (K).
+generators : list of int
+    Generator polinomi konvolucijskog koda (npr. [0o133, 0o171, 0o165]).
+rate : float, default=1/2
+    Kodna stopa (informativno, ne utiče direktno na algoritam).
+
+Attributes
+----------
+K : int
+    Dužina ograničenja konvolucijskog koda.
+generators : list of int
+    Generator polinomi.
+rate : float
+    Kodna stopa.
+n_out : int
+    Broj izlaznih bitova po ulaznom bitu.
+num_states : int
+    Ukupan broj stanja trellisa (2^(K-1)).
+</pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
+<a id="a2a1c3cdd18eb1ae0dd8ef8588b406c0a" name="a2a1c3cdd18eb1ae0dd8ef8588b406c0a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a2a1c3cdd18eb1ae0dd8ef8588b406c0a">&#9670;&#160;</a></span>_build_trellis()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">receiver.viterbi_decoder.ViterbiDecoder._build_trellis </td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<pre class="fragment">Izgrađuje trellis strukturu (prelazi stanja i izlazni bitovi).
+
+Metoda popunjava:
+- next_state[state, bit]
+- output_bits[state, bit, :]
+</pre> 
+</div>
+</div>
+<a id="a651d43a5d526e3ab0957261a55f5942f" name="a651d43a5d526e3ab0957261a55f5942f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a651d43a5d526e3ab0957261a55f5942f">&#9670;&#160;</a></span>_run_viterbi()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">receiver.viterbi_decoder.ViterbiDecoder._run_viterbi </td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">np.ndarray</td>          <td class="paramname"><span class="paramname"><em>rcv</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>start_state</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<pre class="fragment">Izvršava jedan Viterbi algoritam za fiksno početno stanje.
+
+Parameters
+----------
+rcv : numpy.ndarray
+    Primljeni kodirani bitovi oblika (T, n_out).
+start_state : int
+    Početno stanje trellisa.
+
+Returns
+-------
+path : numpy.ndarray
+    Matrica putnih metrika dimenzija (T+1, num_states).
+prev_state : numpy.ndarray
+    Prethodna stanja za backtracking.
+prev_bit : numpy.ndarray
+    Prethodni ulazni bitovi za backtracking.
+</pre> 
+</div>
+</div>
+<a id="ac38d9fcf2dfb3934767fe265c72dbcb2" name="ac38d9fcf2dfb3934767fe265c72dbcb2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac38d9fcf2dfb3934767fe265c72dbcb2">&#9670;&#160;</a></span>decode()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">receiver.viterbi_decoder.ViterbiDecoder.output_bits</td>
+          <td class="memname"> np.ndarray receiver.viterbi_decoder.ViterbiDecoder.decode </td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>bits_or_soft</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>tail_biting</em></span><span class="paramdefsep"> = </span><span class="paramdefval">False</span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">=  np.zeros(</div>
-<div class="line">            (self.num_states, 2, self.n_out), dtype=np.int8</div>
-<div class="line">        )</div>
-</div><!-- fragment -->
+<pre class="fragment">Dekodira kodirane bitove.
+
+bits_or_soft: očekuje hard bitove 0/1 dužine T*n_out.
+              Ako dođe float, kvantizuje se pragom 0.5.
+tail_biting:  True -&gt; tail-biting Viterbi (end_state == start_state)
+              False -&gt; start_state=0, end_state=argmin
+</pre> 
 </div>
 </div>
+<a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
 <a id="a946cbe55462047e6c4900ca47c2aa698" name="a946cbe55462047e6c4900ca47c2aa698"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a946cbe55462047e6c4900ca47c2aa698">&#9670;&#160;</a></span>taps</h2>
 
@@ -159,11 +282,8 @@ Dizajniran da zadovolji pytest testove:
       </table>
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">=  np.array(</div>
-<div class="line">            [</div>
-<div class="line">                [(g &gt;&gt; (self.K - 1 - i)) &amp; 1 <span class="keywordflow">for</span> i <span class="keywordflow">in</span> range(self.K)]</div>
-<div class="line">                <span class="keywordflow">for</span> g <span class="keywordflow">in</span> self.generators</div>
-<div class="line">            ],</div>
-<div class="line">            dtype=np.int8</div>
+<div class="line">            [[(g &gt;&gt; (self.K - 1 - i)) &amp; 1 <span class="keywordflow">for</span> i <span class="keywordflow">in</span> range(self.K)] <span class="keywordflow">for</span> g <span class="keywordflow">in</span> self.generators],</div>
+<div class="line">            dtype=np.int8,</div>
 <div class="line">        )</div>
 </div><!-- fragment -->
 </div>

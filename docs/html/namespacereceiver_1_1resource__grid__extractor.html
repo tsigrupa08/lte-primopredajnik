@@ -96,43 +96,64 @@ $(function(){initNavTree('namespacereceiver_1_1resource__grid__extractor.html','
 Classes</h2></td></tr>
 <tr class="memitem:PBCHConfig" id="r_PBCHConfig"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classreceiver_1_1resource__grid__extractor_1_1_p_b_c_h_config.html">PBCHConfig</a></td></tr>
 <tr class="memitem:PBCHExtractor" id="r_PBCHExtractor"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classreceiver_1_1resource__grid__extractor_1_1_p_b_c_h_extractor.html">PBCHExtractor</a></td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-func-members" class="groupheader"><a id="func-members" name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:aec7cd58b20e3d3536a3bfe27ad635f33" id="r_aec7cd58b20e3d3536a3bfe27ad635f33"><td class="memItemLeft" align="right" valign="top">List[int]&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aec7cd58b20e3d3536a3bfe27ad635f33">pbch_symbol_indices_for_subframes</a> (int num_subframes, bool normal_cp=True, int start_subframe=0)</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><pre class="fragment">resource_grid_extractor.py
 ===========================
 
-Ovaj modul implementira jednostavnu ekstrakciju simbola fizičkog kanala za
-emitiranje (PBCH) na strani prijemnika iz LTE resource grid-a u
-frekvencijskom domenu.
+Ekstrakcija PBCH simbola iz LTE resource grid-a (RX strana).
 
-PBCH nosi Master Information Block (MIB) i u downlink-u zauzima centralnih
-šest resource blokova (RB) u prvom podokviru. Za normalni ciklički prefiks
-(CP) podokvir sadrži četrnaest OFDM simbola, a PBCH obuhvata prva četiri
-simbola drugog slota u podokviru 0. Svaki resource blok sadrži dvanaest
-podnosioca, tako da šest centralnih RB-ova zauzima ukupno 72 podnosioca.
+Ovaj extractor je usklađen sa tvojim TX mapiranjem:
+- PBCH se mapira sekvencijalno po frekvenciji unutar centralnih 6 RB (72 subcarrier-a)
+  za svaki PBCH OFDM simbol, preskačući reserved RE ako je maska zadana.
+- TX staje nakon što potroši tačno onoliko simbola koliko je dobio (npr. 240 po subfrejmu).
 
-Pri generisanju predajničkog grida PBCH simboli se mapiraju sekvencijalno
-po frekvenciji za svaki indeks PBCH simbola, preskačući rezervisane RE
-(ako postoje). Na prijemniku se obrnuti postupak svodi na čitanje istih
-RE iz grida istim redoslijedom.
+Zato i RX extractor MORA:
+- preskakati reserved RE na isti način,
+- ali uvijek vratiti TAČNO pbch_symbols_to_extract simbola (npr. 240 ili 960),
+  tj. stati čim ih skupi (bez obzira ima li maske).
 
-Ova implementacija pruža jednostavan invertni maper i pretpostavlja:
+Napomena:
+- Grid očekujemo u obliku (subcarriers, symbols) kao u tvom TX resource_grid.py
+</pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Function Documentation</h2>
+<a id="aec7cd58b20e3d3536a3bfe27ad635f33" name="aec7cd58b20e3d3536a3bfe27ad635f33"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aec7cd58b20e3d3536a3bfe27ad635f33">&#9670;&#160;</a></span>pbch_symbol_indices_for_subframes()</h2>
 
-* **Normalni ciklički prefiks** – prošireni CP (12 simbola po
-  podokviru) trenutno nije implementiran.
-* **Alokaciju centralnih 6 RB** – PBCH uvijek zauzima šest RB-ova
-  centriranih oko DC podnosioca, bez obzira na ukupnu širinu sistema.
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"> List[int] receiver.resource_grid_extractor.pbch_symbol_indices_for_subframes </td>
+          <td>(</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>num_subframes</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool </td>          <td class="paramname"><span class="paramname"><em>normal_cp</em></span><span class="paramdefsep"> = </span><span class="paramdefval">True</span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int </td>          <td class="paramname"><span class="paramname"><em>start_subframe</em></span><span class="paramdefsep"> = </span><span class="paramdefval">0</span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<pre class="fragment">Helper: napravi globalne OFDM symbol indekse za PBCH kroz više subfrejmova.
 
-Kada nije zadana eksplicitna maska rezervisanih resource elemenata
-(`reserved_re_mask`), ekstraktor čita sve 72 podnosioca za svaki PBCH
-OFDM simbol i vraća prvih 240 uzoraka.
+Normal CP: PBCH u subfrejmu s počinje na l = base + [7,8,9,10]
+Extended CP: PBCH u subfrejmu s počinje na l = base + [6,7,8,9]
 
-Ako predajnik preskače određene RE (npr. zbog CRS-a ili drugih kanala),
-istu booleovu masku treba proslijediti metodi `extract` putem argumenta
-`reserved_re_mask`. U tom slučaju ekstraktor će preskočiti RE gdje je
-maska `True` i vratiti sve preostale PBCH RE (bez “hard” limita na 240,
-jer broj zavisi od maske).
-</pre> </div></div><!-- contents -->
+base = (start_subframe + s) * symbols_per_subframe
+symbols_per_subframe = 14 (normal) ili 12 (extended)
+</pre> 
+</div>
+</div>
+</div><!-- contents -->
 </div><!-- doc-content -->
 <div id="page-nav" class="page-nav-panel">
 <div id="page-nav-resize-handle"></div>

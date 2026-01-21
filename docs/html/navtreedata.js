@@ -32,18 +32,24 @@ var NAVTREE =
         [ "Channel", "md__r_e_a_d_m_e.html#autotoc_md5", null ],
         [ "Receiver (RX)", "md__r_e_a_d_m_e.html#autotoc_md6", null ],
         [ "End-to-End LTE sistem", "md__r_e_a_d_m_e.html#autotoc_md7", null ],
-        [ "Testiranje i vizualizacije", "md__r_e_a_d_m_e.html#autotoc_md8", null ]
+        [ "Testiranje i vizualizacije", "md__r_e_a_d_m_e.html#autotoc_md8", null ],
+        [ "Opis direktorija", "md__r_e_a_d_m_e.html#autotoc_md10", null ]
       ] ],
-      [ "Struktura projekta", "md__r_e_a_d_m_e.html#autotoc_md10", null ],
-      [ "Trenutno stanje projekta", "md__r_e_a_d_m_e.html#autotoc_md11", null ],
-      [ "Pokretanje projekta", "md__r_e_a_d_m_e.html#autotoc_md12", [
-        [ "Kloniranje repozitorija", "md__r_e_a_d_m_e.html#autotoc_md13", null ],
-        [ "Kreiranje virtualnog okruženja", "md__r_e_a_d_m_e.html#autotoc_md14", null ],
-        [ "Aktivacija virtualnog okruženja:", "md__r_e_a_d_m_e.html#autotoc_md15", null ],
-        [ "Instalacija zavisnosti", "md__r_e_a_d_m_e.html#autotoc_md16", null ]
+      [ "Tok obrade signala (workflow)", "md__r_e_a_d_m_e.html#autotoc_md11", null ],
+      [ "Trenutno stanje projekta", "md__r_e_a_d_m_e.html#autotoc_md12", null ],
+      [ "Pokretanje projekta", "md__r_e_a_d_m_e.html#autotoc_md13", [
+        [ "Kloniranje repozitorija", "md__r_e_a_d_m_e.html#autotoc_md14", null ],
+        [ "Kreiranje virtualnog okruženja", "md__r_e_a_d_m_e.html#autotoc_md15", null ],
+        [ "Aktivacija virtualnog okruženja:", "md__r_e_a_d_m_e.html#autotoc_md16", null ],
+        [ "Instalacija zavisnosti", "md__r_e_a_d_m_e.html#autotoc_md17", null ]
       ] ],
-      [ "Testiranje", "md__r_e_a_d_m_e.html#autotoc_md17", null ],
-      [ "Dokumentacija", "md__r_e_a_d_m_e.html#autotoc_md18", null ]
+      [ "Pokretanje GUI aplikacije", "md__r_e_a_d_m_e.html#autotoc_md18", null ],
+      [ "Testiranje", "md__r_e_a_d_m_e.html#autotoc_md19", [
+        [ "Vrste testova", "md__r_e_a_d_m_e.html#autotoc_md20", null ],
+        [ "Pokretanje testova", "md__r_e_a_d_m_e.html#autotoc_md21", null ]
+      ] ],
+      [ "Dokumentacija", "md__r_e_a_d_m_e.html#autotoc_md22", null ],
+      [ "Zaključak", "md__r_e_a_d_m_e.html#autotoc_md23", null ]
     ] ],
     [ "Namespaces", "namespaces.html", [
       [ "Namespace List", "namespaces.html", "namespaces_dup" ],

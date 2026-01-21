@@ -103,14 +103,7 @@ Public Attributes</h2></td></tr>
 <tr class="memitem:ab19ada91c44213d3275fb5db49a090f8" id="r_ab19ada91c44213d3275fb5db49a090f8"><td class="memItemLeft" align="right" valign="top"><a id="ab19ada91c44213d3275fb5db49a090f8" name="ab19ada91c44213d3275fb5db49a090f8"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>cfg</b> = cfg or <a class="el" href="classreceiver_1_1resource__grid__extractor_1_1_p_b_c_h_config.html">PBCHConfig</a>()</td></tr>
 </table>
-<a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">Ekstraktor PBCH simbola iz LTE resource grid-a (RX).
-
-Ekstrakcija prati TX mapiranje:
-- iterira se po `pbch_symbol_indices`
-- unutar simbola prolazi se centralnih 6 RB (72 subcarrier-a)
-- opcionalno se preskaču RE gdje je `reserved_re_mask == True`
-</pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
+<a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
 <a id="ae112b9425637cdd24b12d63dca41ba71" name="ae112b9425637cdd24b12d63dca41ba71"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ae112b9425637cdd24b12d63dca41ba71">&#9670;&#160;</a></span>extract()</h2>
 
@@ -134,23 +127,11 @@ Ekstrakcija prati TX mapiranje:
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Ekstrahuje PBCH simbole iz datog resource grida.
+<pre class="fragment">Ekstrahuje PBCH simbole iz resursnog grida.
 
-Parameters
-----------
-grid : np.ndarray
-    2D kompleksni resource grid oblika (num_subcarriers, num_symbols),
-    gdje mora važiti num_subcarriers = 12 * NDLRB.
-reserved_re_mask : np.ndarray | None
-    Booleova maska istih dimenzija kao grid. True znači “rezervisano”
-    i biće preskočeno pri ekstrakciji.
-
-Returns
--------
-np.ndarray
-    1D niz kompleksnih PBCH simbola.
-    - Ako nema maske: vraća tačno `pbch_symbols_per_subframe` (npr. 240).
-    - Ako maska postoji: vraća sve PBCH RE koji nisu rezervisani.
+grid: shape (num_subcarriers, num_symbols_total)
+reserved_re_mask: optional bool maska istog shape-a kao grid.
+                  True znači "rezervisano" (preskoči).
 </pre> 
 </div>
 </div>

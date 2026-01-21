@@ -94,18 +94,32 @@ $(function(){initNavTree('classtransmitter_1_1pbch_1_1_p_b_c_h_encoder.html','',
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-methods" class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:afcdbfb235c2065f1652c8d40b806415a" id="r_afcdbfb235c2065f1652c8d40b806415a"><td class="memItemLeft" align="right" valign="top"><a id="afcdbfb235c2065f1652c8d40b806415a" name="afcdbfb235c2065f1652c8d40b806415a"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, bool verbose=True)</td></tr>
-<tr class="memitem:a43110c8dffd62589ed95f270421f1fe3" id="r_a43110c8dffd62589ed95f270421f1fe3"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a43110c8dffd62589ed95f270421f1fe3">crc16</a> (self, Sequence[int] bits)</td></tr>
-<tr class="memitem:a22260a8b574668930000274d1c1a87b8" id="r_a22260a8b574668930000274d1c1a87b8"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a22260a8b574668930000274d1c1a87b8">rate_match</a> (self, Sequence[int] bits, int E=1920)</td></tr>
-<tr class="memitem:a5ae56155626da870e948a838127a3fe6" id="r_a5ae56155626da870e948a838127a3fe6"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a5ae56155626da870e948a838127a3fe6">qpsk</a> (self, Sequence[int] bits)</td></tr>
+<tr class="memitem:a8e28d48dd023e65243151803d9f45e2e" id="r_a8e28d48dd023e65243151803d9f45e2e"><td class="memItemLeft" align="right" valign="top"><a id="a8e28d48dd023e65243151803d9f45e2e" name="a8e28d48dd023e65243151803d9f45e2e"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, bool verbose=True, int pci=0, bool enable_scrambling=True)</td></tr>
+<tr class="memitem:a43110c8dffd62589ed95f270421f1fe3" id="r_a43110c8dffd62589ed95f270421f1fe3"><td class="memItemLeft" align="right" valign="top"><a id="a43110c8dffd62589ed95f270421f1fe3" name="a43110c8dffd62589ed95f270421f1fe3"></a>
+np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><b>crc16</b> (self, Sequence[int] bits)</td></tr>
+<tr class="memitem:ab117dc6a3adbc6676f7bf20ba7cf543b" id="r_ab117dc6a3adbc6676f7bf20ba7cf543b"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab117dc6a3adbc6676f7bf20ba7cf543b">rate_match</a> (self, Sequence[int] bits_120, int E=1920)</td></tr>
+<tr class="memitem:a07abbc64e75264223e46eca9b01b89cc" id="r_a07abbc64e75264223e46eca9b01b89cc"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a07abbc64e75264223e46eca9b01b89cc">gold_sequence_pbch</a> (self, int c_init, int length)</td></tr>
+<tr class="memitem:a373448cebf99d9852b640e07b14c5b05" id="r_a373448cebf99d9852b640e07b14c5b05"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a373448cebf99d9852b640e07b14c5b05">qpsk</a> (self, bits)</td></tr>
 <tr class="memitem:a6fd66116591e9eb35f362ddb46e3ed37" id="r_a6fd66116591e9eb35f362ddb46e3ed37"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a6fd66116591e9eb35f362ddb46e3ed37">encode</a> (self, Sequence[int] info_bits)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
 <tr class="memitem:aabb61080272ee8b07be97052f1fa17bd" id="r_aabb61080272ee8b07be97052f1fa17bd"><td class="memItemLeft" align="right" valign="top"><a id="aabb61080272ee8b07be97052f1fa17bd" name="aabb61080272ee8b07be97052f1fa17bd"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>verbose</b> = verbose</td></tr>
+<tr class="memitem:a81c98e3d830cae2a46455b87b87d8a0e" id="r_a81c98e3d830cae2a46455b87b87d8a0e"><td class="memItemLeft" align="right" valign="top"><a id="a81c98e3d830cae2a46455b87b87d8a0e" name="a81c98e3d830cae2a46455b87b87d8a0e"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>pci</b> = int(pci)</td></tr>
+<tr class="memitem:aa1d6dfcc5a7daede81b3adf85e941037" id="r_aa1d6dfcc5a7daede81b3adf85e941037"><td class="memItemLeft" align="right" valign="top"><a id="aa1d6dfcc5a7daede81b3adf85e941037" name="aa1d6dfcc5a7daede81b3adf85e941037"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>enable_scrambling</b> = bool(enable_scrambling)</td></tr>
 <tr class="memitem:a003c6ec22d6765149545be1da50a5723" id="r_a003c6ec22d6765149545be1da50a5723"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a003c6ec22d6765149545be1da50a5723">fec</a></td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-methods" class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a4aa21f958edcff4f97cfaa34cadf23d2" id="r_a4aa21f958edcff4f97cfaa34cadf23d2"><td class="memItemLeft" align="right" valign="top">np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4aa21f958edcff4f97cfaa34cadf23d2">_subblock_interleave_120</a> (self, Sequence[int] bits_120)</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-static-attribs" class="groupheader"><a id="pro-static-attribs" name="pro-static-attribs"></a>
+Static Protected Attributes</h2></td></tr>
+<tr class="memitem:a876a637f7a5864ef578caeba986d4ea2" id="r_a876a637f7a5864ef578caeba986d4ea2"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a876a637f7a5864ef578caeba986d4ea2">_PERM_PATTERN</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><pre class="fragment">PBCHEncoder: kompletan enkoder za PBCH zadat iz projektne dokumentacije.
@@ -115,25 +129,37 @@ Parameters
 verbose : bool
     Ako je True, ispisuje informacije o svakom koraku enkodiranja.
 </pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
-<a id="a43110c8dffd62589ed95f270421f1fe3" name="a43110c8dffd62589ed95f270421f1fe3"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a43110c8dffd62589ed95f270421f1fe3">&#9670;&#160;</a></span>crc16()</h2>
+<a id="a4aa21f958edcff4f97cfaa34cadf23d2" name="a4aa21f958edcff4f97cfaa34cadf23d2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4aa21f958edcff4f97cfaa34cadf23d2">&#9670;&#160;</a></span>_subblock_interleave_120()</h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname"> np.ndarray transmitter.pbch.PBCHEncoder.crc16 </td>
+          <td class="memname"> np.ndarray transmitter.pbch.PBCHEncoder._subblock_interleave_120 </td>
           <td>(</td>
           <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits</em></span>&#160;)</td>
+          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits_120</em></span>&#160;)</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-<pre class="fragment">CRC16 (polinom 0x1021, init 0xFFFF)
+<pre class="fragment">LTE PBCH sub-block interleaver for 120 coded bits (rate 1/3).
+- Split into 3 streams d0,d1,d2 (each 40 bits)
+- For each stream: 32-column interleaver with dummy bits at the start,
+permute columns with _PERM_PATTERN, then read out column-wise.
+Returns 120 interleaved bits.
 </pre> 
 </div>
 </div>
@@ -160,30 +186,61 @@ verbose : bool
 </pre> 
 </div>
 </div>
-<a id="a5ae56155626da870e948a838127a3fe6" name="a5ae56155626da870e948a838127a3fe6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a5ae56155626da870e948a838127a3fe6">&#9670;&#160;</a></span>qpsk()</h2>
+<a id="a07abbc64e75264223e46eca9b01b89cc" name="a07abbc64e75264223e46eca9b01b89cc"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a07abbc64e75264223e46eca9b01b89cc">&#9670;&#160;</a></span>gold_sequence_pbch()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"> np.ndarray transmitter.pbch.PBCHEncoder.qpsk </td>
+          <td class="memname"> np.ndarray transmitter.pbch.PBCHEncoder.gold_sequence_pbch </td>
           <td>(</td>
           <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits</em></span>&#160;)</td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>c_init</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">int</td>          <td class="paramname"><span class="paramname"><em>length</em></span>&#160;)</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Gray QPSK mapiranje
+<pre class="fragment">Gold scrambler za PBCH:
+- x1: init [1, 0, 0, ..., 0]
+- x2: init iz c_init (PCI), 31 bita
+- 1600 warm-up iteracija
+- c[n] = x1[n] XOR x2[n]
 </pre> 
 </div>
 </div>
-<a id="a22260a8b574668930000274d1c1a87b8" name="a22260a8b574668930000274d1c1a87b8"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a22260a8b574668930000274d1c1a87b8">&#9670;&#160;</a></span>rate_match()</h2>
+<a id="a373448cebf99d9852b640e07b14c5b05" name="a373448cebf99d9852b640e07b14c5b05"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a373448cebf99d9852b640e07b14c5b05">&#9670;&#160;</a></span>qpsk()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">transmitter.pbch.PBCHEncoder.qpsk </td>
+          <td>(</td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>bits</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<pre class="fragment">Gray QPSK mapiranje: 0-&gt;+1, 1-&gt;-1 (po I i Q grani)
+</pre> 
+</div>
+</div>
+<a id="ab117dc6a3adbc6676f7bf20ba7cf543b" name="ab117dc6a3adbc6676f7bf20ba7cf543b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab117dc6a3adbc6676f7bf20ba7cf543b">&#9670;&#160;</a></span>rate_match()</h2>
 
 <div class="memitem">
 <div class="memproto">
@@ -196,7 +253,7 @@ verbose : bool
         <tr>
           <td class="paramkey"></td>
           <td></td>
-          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits</em></span>, </td>
+          <td class="paramtype">Sequence[int]</td>          <td class="paramname"><span class="paramname"><em>bits_120</em></span>, </td>
         </tr>
         <tr>
           <td class="paramkey"></td>
@@ -205,13 +262,41 @@ verbose : bool
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Rate matching:
-- repeat ako je ulaz kraći
-- subsample ako je duži
+<pre class="fragment">PBCH rate matching = interleaving + repetition.
+
+Normal CP:  120 interleaved bits repeated 16 times -&gt; 1920
+Extended CP: repeat 14 times then append first 48 bits -&gt; 1728
 </pre> 
 </div>
 </div>
 <a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
+<a id="a876a637f7a5864ef578caeba986d4ea2" name="a876a637f7a5864ef578caeba986d4ea2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a876a637f7a5864ef578caeba986d4ea2">&#9670;&#160;</a></span>_PERM_PATTERN</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">transmitter.pbch.PBCHEncoder._PERM_PATTERN</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel static">static</span><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<b>Initial value:</b><div class="fragment"><div class="line">=  np.array(</div>
+<div class="line">        [1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31,</div>
+<div class="line">        0, 16, 8, 24, 4, 20, 12, 28, 2, 18, 10, 26, 6, 22, 14, 30],</div>
+<div class="line">        dtype=int</div>
+<div class="line">    )</div>
+</div><!-- fragment -->
+</div>
+</div>
 <a id="a003c6ec22d6765149545be1da50a5723" name="a003c6ec22d6765149545be1da50a5723"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a003c6ec22d6765149545be1da50a5723">&#9670;&#160;</a></span>fec</h2>
 
@@ -225,8 +310,8 @@ verbose : bool
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">=  ConvolutionalEncoder(</div>
 <div class="line">            constraint_len=7,</div>
-<div class="line">            generators_octal=(0o133, 0o171, 0o164),</div>
-<div class="line">            tail_biting=<span class="keyword">False</span>,</div>
+<div class="line">            generators_octal=(0o133, 0o171, 0o165),</div>
+<div class="line">            tail_biting=<span class="keyword">True</span>,</div>
 <div class="line">        )</div>
 </div><!-- fragment -->
 </div>

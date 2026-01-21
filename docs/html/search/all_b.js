@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['main_0',['main',['../namespacepss__demo.html#ae54c91060c99453ad5a34089a69bee98',1,'pss_demo']]],
+  ['main_0',['main',['../namespaceexamples_1_1pss__demo.html#a524675fedee6cbf9e5a48096c11b49e9',1,'examples::pss_demo']]],
   ['make_5fencoder_5fdecoder_1',['make_encoder_decoder',['../namespacetests_1_1test__viterbi__decoder.html#a4c7b63686ca385ea2872ca16cded683b',1,'tests::test_viterbi_decoder']]],
   ['map_5fpbch_2',['map_pbch',['../classtransmitter_1_1resource__grid_1_1_resource_grid.html#a1a2de8668483fb774a4c84d59b18254d',1,'transmitter::resource_grid::ResourceGrid']]],
   ['map_5fpbch_5fto_5fgrid_3',['map_pbch_to_grid',['../namespacetransmitter_1_1resource__grid.html#ac23978b7290284169ba6d6d8823afc5c',1,'transmitter::resource_grid']]],

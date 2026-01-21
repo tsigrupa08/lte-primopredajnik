@@ -94,68 +94,123 @@ $(function(){initNavTree('classreceiver_1_1_l_t_e_rx_chain_1_1_l_t_e_rx_chain.ht
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-methods" class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a8f2d20c50f4760ab745be5b4e035b8c7" id="r_a8f2d20c50f4760ab745be5b4e035b8c7"><td class="memItemLeft" align="right" valign="top"><a id="a8f2d20c50f4760ab745be5b4e035b8c7" name="a8f2d20c50f4760ab745be5b4e035b8c7"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, sample_rate_hz=1.92e6, ndlrb=6, normal_cp=True, fft_size=None)</td></tr>
-<tr class="memitem:a22e0a3073c963e178909f1e969d60818" id="r_a22e0a3073c963e178909f1e969d60818"><td class="memItemLeft" align="right" valign="top">dict&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a22e0a3073c963e178909f1e969d60818">process</a> (self, np.ndarray rx_waveform)</td></tr>
+<tr class="memitem:afb056fe2c3747f4f59928ba61e1c224a" id="r_afb056fe2c3747f4f59928ba61e1c224a"><td class="memItemLeft" align="right" valign="top"><a id="afb056fe2c3747f4f59928ba61e1c224a" name="afb056fe2c3747f4f59928ba61e1c224a"></a>
+None&#160;</td><td class="memItemRight" valign="bottom"><b>__init__</b> (self, *, float|None sample_rate_hz=None, int ndlrb=6, bool normal_cp=True, int pci=0, int pbch_spread_subframes=4, bool enable_cfo_correction=True, bool enable_descrambling=True, bool normalize_before_pss=True, int|None pss_window_samples=None, float cfo_limit_hz=3000.0)</td></tr>
+<tr class="memitem:a4126a5cd5a9a8e9d2dc9dd49b0b07523" id="r_a4126a5cd5a9a8e9d2dc9dd49b0b07523"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classreceiver_1_1_l_t_e_rx_chain_1_1_rx_result.html">RxResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4126a5cd5a9a8e9d2dc9dd49b0b07523">decode</a> (self, np.ndarray rx_waveform)</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-attribs" class="groupheader"><a id="pub-attribs" name="pub-attribs"></a>
 Public Attributes</h2></td></tr>
-<tr class="memitem:a492706c6395296e39e42843be4fdb973" id="r_a492706c6395296e39e42843be4fdb973"><td class="memItemLeft" align="right" valign="top"><a id="a492706c6395296e39e42843be4fdb973" name="a492706c6395296e39e42843be4fdb973"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>utils</b> = <a class="el" href="classreceiver_1_1utils_1_1_rx_utils.html">RxUtils</a>()</td></tr>
-<tr class="memitem:a1097ba86dda4a09115b31d56c3d0469a" id="r_a1097ba86dda4a09115b31d56c3d0469a"><td class="memItemLeft" align="right" valign="top"><a id="a1097ba86dda4a09115b31d56c3d0469a" name="a1097ba86dda4a09115b31d56c3d0469a"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>sample_rate_hz</b> = float(sample_rate_hz)</td></tr>
 <tr class="memitem:aee918c4ceb027d537045b183c9e09b96" id="r_aee918c4ceb027d537045b183c9e09b96"><td class="memItemLeft" align="right" valign="top"><a id="aee918c4ceb027d537045b183c9e09b96" name="aee918c4ceb027d537045b183c9e09b96"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>ndlrb</b> = int(ndlrb)</td></tr>
 <tr class="memitem:a6dbec801a9059e824bff48e313612f8f" id="r_a6dbec801a9059e824bff48e313612f8f"><td class="memItemLeft" align="right" valign="top"><a id="a6dbec801a9059e824bff48e313612f8f" name="a6dbec801a9059e824bff48e313612f8f"></a>
 &#160;</td><td class="memItemRight" valign="bottom"><b>normal_cp</b> = bool(normal_cp)</td></tr>
+<tr class="memitem:ab6f7a8747836e8cb8af4917b39d2e9da" id="r_ab6f7a8747836e8cb8af4917b39d2e9da"><td class="memItemLeft" align="right" valign="top"><a id="ab6f7a8747836e8cb8af4917b39d2e9da" name="ab6f7a8747836e8cb8af4917b39d2e9da"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>pci</b> = int(pci)</td></tr>
+<tr class="memitem:a6184147e678afbf32d4d27dcd359d160" id="r_a6184147e678afbf32d4d27dcd359d160"><td class="memItemLeft" align="right" valign="top"><a id="a6184147e678afbf32d4d27dcd359d160" name="a6184147e678afbf32d4d27dcd359d160"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_spread_subframes</b> = int(pbch_spread_subframes)</td></tr>
+<tr class="memitem:ae1dc331846b95ff2ade7e0b675771ba2" id="r_ae1dc331846b95ff2ade7e0b675771ba2"><td class="memItemLeft" align="right" valign="top"><a id="ae1dc331846b95ff2ade7e0b675771ba2" name="ae1dc331846b95ff2ade7e0b675771ba2"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>enable_cfo_correction</b> = bool(enable_cfo_correction)</td></tr>
+<tr class="memitem:a842812f0553e4cb0b0d35ca2875148a3" id="r_a842812f0553e4cb0b0d35ca2875148a3"><td class="memItemLeft" align="right" valign="top"><a id="a842812f0553e4cb0b0d35ca2875148a3" name="a842812f0553e4cb0b0d35ca2875148a3"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>enable_descrambling</b> = bool(enable_descrambling)</td></tr>
+<tr class="memitem:a762e3a4b02740d8828d3a8746ecf32b7" id="r_a762e3a4b02740d8828d3a8746ecf32b7"><td class="memItemLeft" align="right" valign="top"><a id="a762e3a4b02740d8828d3a8746ecf32b7" name="a762e3a4b02740d8828d3a8746ecf32b7"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>normalize_before_pss</b> = bool(normalize_before_pss)</td></tr>
+<tr class="memitem:a7d122b7a7d62437e422567a87f4ce4ba" id="r_a7d122b7a7d62437e422567a87f4ce4ba"><td class="memItemLeft" align="right" valign="top"><a id="a7d122b7a7d62437e422567a87f4ce4ba" name="a7d122b7a7d62437e422567a87f4ce4ba"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>pss_window_samples</b> = pss_window_samples</td></tr>
+<tr class="memitem:a87e86c17b2a088ed57cb6a6d450d68d6" id="r_a87e86c17b2a088ed57cb6a6d450d68d6"><td class="memItemLeft" align="right" valign="top"><a id="a87e86c17b2a088ed57cb6a6d450d68d6" name="a87e86c17b2a088ed57cb6a6d450d68d6"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>cfo_limit_hz</b> = float(cfo_limit_hz)</td></tr>
+<tr class="memitem:a3852e4f96d0bee77954f6b535da13843" id="r_a3852e4f96d0bee77954f6b535da13843"><td class="memItemLeft" align="right" valign="top"><a id="a3852e4f96d0bee77954f6b535da13843" name="a3852e4f96d0bee77954f6b535da13843"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>u</b> = <a class="el" href="classreceiver_1_1utils_1_1_rx_utils.html">RxUtils</a>()</td></tr>
+<tr class="memitem:aaed1ff6295095c256b2acb3e77240dc4" id="r_aaed1ff6295095c256b2acb3e77240dc4"><td class="memItemLeft" align="right" valign="top"><a id="aaed1ff6295095c256b2acb3e77240dc4" name="aaed1ff6295095c256b2acb3e77240dc4"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>ofdm_demod</b> = <a class="el" href="classreceiver_1_1_o_f_d_m__demodulator_1_1_o_f_d_m_demodulator.html">OFDMDemodulator</a>(ndlrb=self.ndlrb, normal_cp=self.normal_cp)</td></tr>
+<tr class="memitem:a1097ba86dda4a09115b31d56c3d0469a" id="r_a1097ba86dda4a09115b31d56c3d0469a"><td class="memItemLeft" align="right" valign="top"><a id="a1097ba86dda4a09115b31d56c3d0469a" name="a1097ba86dda4a09115b31d56c3d0469a"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>sample_rate_hz</b> = fs_expected</td></tr>
 <tr class="memitem:a84951fd2af3ca2705d4268a5189a9fd6" id="r_a84951fd2af3ca2705d4268a5189a9fd6"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a84951fd2af3ca2705d4268a5189a9fd6">pss_sync</a></td></tr>
-<tr class="memitem:aaed1ff6295095c256b2acb3e77240dc4" id="r_aaed1ff6295095c256b2acb3e77240dc4"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#aaed1ff6295095c256b2acb3e77240dc4">ofdm_demod</a></td></tr>
-<tr class="memitem:ad1725038582788f81df12df61484422f" id="r_ad1725038582788f81df12df61484422f"><td class="memItemLeft" align="right" valign="top"><a id="ad1725038582788f81df12df61484422f" name="ad1725038582788f81df12df61484422f"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_ext</b> = <a class="el" href="classreceiver_1_1resource__grid__extractor_1_1_p_b_c_h_extractor.html">PBCHExtractor</a>(pbch_cfg)</td></tr>
-<tr class="memitem:a7d00798d56674be428225027a388003b" id="r_a7d00798d56674be428225027a388003b"><td class="memItemLeft" align="right" valign="top"><a id="a7d00798d56674be428225027a388003b" name="a7d00798d56674be428225027a388003b"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>demapper</b> = <a class="el" href="classreceiver_1_1_q_p_s_k__demapiranje_1_1_q_p_s_k_demapper.html">QPSKDemapper</a>(mode=&quot;hard&quot;)</td></tr>
-<tr class="memitem:acda67970773250ac7234c1493d594d35" id="r_acda67970773250ac7234c1493d594d35"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#acda67970773250ac7234c1493d594d35">deratematcher</a></td></tr>
+<tr class="memitem:ab2bef7fbbc4473a92648c67040a15dc2" id="r_ab2bef7fbbc4473a92648c67040a15dc2"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ab2bef7fbbc4473a92648c67040a15dc2">pbch_cfg</a></td></tr>
+<tr class="memitem:a54d1276d6fe6615e6c5a73d5378b2507" id="r_a54d1276d6fe6615e6c5a73d5378b2507"><td class="memItemLeft" align="right" valign="top"><a id="a54d1276d6fe6615e6c5a73d5378b2507" name="a54d1276d6fe6615e6c5a73d5378b2507"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>pbch_extractor</b> = <a class="el" href="classreceiver_1_1resource__grid__extractor_1_1_p_b_c_h_extractor.html">PBCHExtractor</a>(self.pbch_cfg)</td></tr>
+<tr class="memitem:ace8120239a1f5445b64bdd821639ecc4" id="r_ace8120239a1f5445b64bdd821639ecc4"><td class="memItemLeft" align="right" valign="top"><a id="ace8120239a1f5445b64bdd821639ecc4" name="ace8120239a1f5445b64bdd821639ecc4"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>qpsk_demapper</b> = <a class="el" href="classreceiver_1_1_q_p_s_k__demapiranje_1_1_q_p_s_k_demapper.html">QPSKDemapper</a>(mode=&quot;hard&quot;)</td></tr>
+<tr class="memitem:ac3de6cbfbef9f143aa55a068bdab1dfd" id="r_ac3de6cbfbef9f143aa55a068bdab1dfd"><td class="memItemLeft" align="right" valign="top"><a id="ac3de6cbfbef9f143aa55a068bdab1dfd" name="ac3de6cbfbef9f143aa55a068bdab1dfd"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>de_rm</b> = <a class="el" href="classreceiver_1_1de__rate__matching_1_1_de_rate_matcher_p_b_c_h.html">DeRateMatcherPBCH</a>(n_coded=120)</td></tr>
 <tr class="memitem:a1bc47de33403b1a4127a01e84b28020a" id="r_a1bc47de33403b1a4127a01e84b28020a"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a1bc47de33403b1a4127a01e84b28020a">viterbi</a></td></tr>
-<tr class="memitem:a4c0db9a124bf41d7ccd844f60f3bc951" id="r_a4c0db9a124bf41d7ccd844f60f3bc951"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a4c0db9a124bf41d7ccd844f60f3bc951">crc</a></td></tr>
+<tr class="memitem:a4c0db9a124bf41d7ccd844f60f3bc951" id="r_a4c0db9a124bf41d7ccd844f60f3bc951"><td class="memItemLeft" align="right" valign="top"><a id="a4c0db9a124bf41d7ccd844f60f3bc951" name="a4c0db9a124bf41d7ccd844f60f3bc951"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>crc</b> = <a class="el" href="classreceiver_1_1crc__checker_1_1_c_r_c_checker.html">CRCChecker</a>()</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-methods" class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a6a8f22d89de471744b1845f09bd24611" id="r_a6a8f22d89de471744b1845f09bd24611"><td class="memItemLeft" align="right" valign="top"><a id="a6a8f22d89de471744b1845f09bd24611" name="a6a8f22d89de471744b1845f09bd24611"></a>
+np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><b>_descramble_pbch_bits</b> (self, np.ndarray bits)</td></tr>
+<tr class="memitem:a79dbc554a4cd19e42e805b5038218fcd" id="r_a79dbc554a4cd19e42e805b5038218fcd"><td class="memItemLeft" align="right" valign="top"><a id="a79dbc554a4cd19e42e805b5038218fcd" name="a79dbc554a4cd19e42e805b5038218fcd"></a>
+np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><b>_pbch_deinterleave_120</b> (self, np.ndarray interleaved_120)</td></tr>
+<tr class="memitem:a0e0b2be1147bad9a0945e25473bebe6c" id="r_a0e0b2be1147bad9a0945e25473bebe6c"><td class="memItemLeft" align="right" valign="top"><a id="a0e0b2be1147bad9a0945e25473bebe6c" name="a0e0b2be1147bad9a0945e25473bebe6c"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>_offset_samples_to_pss_cp_start</b> (self)</td></tr>
+<tr class="memitem:a56dd91fd35a67214577f14c9d4b13aad" id="r_a56dd91fd35a67214577f14c9d4b13aad"><td class="memItemLeft" align="right" valign="top"><a id="a56dd91fd35a67214577f14c9d4b13aad" name="a56dd91fd35a67214577f14c9d4b13aad"></a>
+int&#160;</td><td class="memItemRight" valign="bottom"><b>_samples_per_subframe</b> (self)</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-static-methods" class="groupheader"><a id="pro-static-methods" name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
+<tr class="memitem:a82ee4b6c8d9fadaf290cbefe16954cc7" id="r_a82ee4b6c8d9fadaf290cbefe16954cc7"><td class="memItemLeft" align="right" valign="top"><a id="a82ee4b6c8d9fadaf290cbefe16954cc7" name="a82ee4b6c8d9fadaf290cbefe16954cc7"></a>
+np.ndarray&#160;</td><td class="memItemRight" valign="bottom"><b>_gold_sequence_pbch</b> (int c_init, int length)</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-static-attribs" class="groupheader"><a id="pro-static-attribs" name="pro-static-attribs"></a>
+Static Protected Attributes</h2></td></tr>
+<tr class="memitem:af89ae2aecefffa3b8445a35247865962" id="r_af89ae2aecefffa3b8445a35247865962"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#af89ae2aecefffa3b8445a35247865962">_PERM_PATTERN</a></td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
-<div class="textblock"><pre class="fragment">LTE Receiver Chain – PBCH prijemnik (RX).
+<div class="textblock"><pre class="fragment">LTE prijemni lanac (RX) za PBCH/MIB dekodiranje.
 
-Ova klasa implementira kompletan LTE prijemni lanac za:
-- PSS sinkronizaciju (detekcija N_ID_2 i početka okvira)
-- OFDM demodulaciju (CP removal + FFT)
-- PBCH ekstrakciju i dekodiranje
-- CRC provjeru ispravnosti MIB poruke
+Klasa implementira kompletan LTE PHY prijemni tok usklađen s odgovarajućim
+predajnikom (LTETxChain). Obuhvata PSS sinhronizaciju, OFDM demodulaciju,
+PBCH ekstrakciju i dekodiranje, te CRC provjeru ispravnosti prijema.
 
-Klasa je dizajnirana za end-to-end demonstraciju:
-TX → Channel → RX
+RX tok obrade:
+- PSS korelacija i detekcija (N_ID_2, vremenski pomak)
+- Opciona procjena i korekcija frekvencijskog ofseta (CFO)
+- OFDM demodulacija (uklanjanje CP i FFT)
+- Ekstrakcija PBCH resursnih elemenata kroz 4 subfrejma
+- QPSK demapiranje
+- Descrambling (Gold sekvenca)
+- De-rate matching i deinterleaving
+- Viterbi dekodiranje (tail-biting)
+- CRC provjera i rekonstrukcija MIB bita
 
 Parameters
 ----------
 sample_rate_hz : float, optional
-    Frekvencija uzorkovanja ulaznog signala (Hz).
-    Tipično 1.92e6 za LTE 1.4 MHz.
-ndlrb : int, optional
-    Broj downlink resource blokova (NDLRB).
-    Za LTE 1.4 MHz vrijedi ndlrb = 6.
-normal_cp : bool, optional
-    Ako je True, koristi se normalni cyclic prefix (14 OFDM simbola).
-fft_size : int or None, optional
-    Ručno zadavanje FFT veličine (ako None, koristi se LTE standard).
+    Frekvencija uzorkovanja ulaznog signala u Hz. Ako nije zadana,
+    automatski se određuje iz OFDM parametara.
+ndlrb : int, default=6
+    Broj downlink resource blockova (LTE bandwidth konfiguracija).
+normal_cp : bool, default=True
+    Korištenje normalnog cikličkog prefiksa.
+pci : int, default=0
+    Physical Cell ID (PCI). Tokom dekodiranja se ažurira na osnovu PSS-a.
+pbch_spread_subframes : int, default=4
+    Broj subfrejmova preko kojih je PBCH raspoređen.
+enable_cfo_correction : bool, default=True
+    Omogućava procjenu i korekciju CFO-a.
+enable_descrambling : bool, default=True
+    Omogućava descrambling PBCH bitova.
+normalize_before_pss : bool, default=True
+    Normalizacija RMS vrijednosti prije PSS korelacije.
+pss_window_samples : int, optional
+    Veličina prozora (u uzorcima) za PSS pretragu.
+cfo_limit_hz : float, default=3000.0
+    Maksimalna dozvoljena vrijednost CFO-a (Hz).
 
 Notes
 -----
-Ova implementacija je edukativna i pojednostavljena,
-ali zadržava strukturu realnog LTE prijemnika.
+Implementacija je namijenjena edukativnoj i istraživačkoj upotrebi
+i prati 3GPP LTE PHY specifikaciju za PBCH prijem.
 </pre> </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
-<a id="a22e0a3073c963e178909f1e969d60818" name="a22e0a3073c963e178909f1e969d60818"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a22e0a3073c963e178909f1e969d60818">&#9670;&#160;</a></span>process()</h2>
+<a id="a4126a5cd5a9a8e9d2dc9dd49b0b07523" name="a4126a5cd5a9a8e9d2dc9dd49b0b07523"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4126a5cd5a9a8e9d2dc9dd49b0b07523">&#9670;&#160;</a></span>decode()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"> dict receiver.LTERxChain.LTERxChain.process </td>
+          <td class="memname"> <a class="el" href="classreceiver_1_1_l_t_e_rx_chain_1_1_rx_result.html">RxResult</a> receiver.LTERxChain.LTERxChain.decode </td>
           <td>(</td>
           <td class="paramtype"></td>          <td class="paramname"><span class="paramname"><em>self</em></span>, </td>
         </tr>
@@ -166,94 +221,65 @@ ali zadržava strukturu realnog LTE prijemnika.
         </tr>
       </table>
 </div><div class="memdoc">
-<pre class="fragment">Pokreće kompletan LTE RX lanac nad ulaznim signalom.
+<pre class="fragment"> Dekodira PBCH/MIB informacije iz primljenog LTE signala.
 
 Parameters
 ----------
-rx_waveform : np.ndarray (complex)
-    Kompleksni vremenski signal na ulazu prijemnika
-    (nakon kanala: AWGN, CFO, itd.).
+rx_waveform : numpy.ndarray
+    Kompleksni vremenski LTE signal (1D niz).
 
 Returns
 -------
-result : dict
-    Rječnik sa sljedećim ključevima:
-
-    - 'mib_bits' : np.ndarray
-        Dekodirani MIB bitovi (payload bez CRC).
-    - 'crc_ok' : bool
-        True ako je CRC ispravan, False inače.
-    - 'debug' : dict
-        Debug informacije korisne za analizu i vizualizaciju:
-        * pss_corr_metrics
-        * tau_hat
-        * detected_nid
-        * cfo_hat
-        * grid_active
-        * pbch_symbols_rx
-
-Notes
------
-Ova funkcija se tipično poziva jednom po RX signalu:
-
-&gt;&gt;&gt; rx = LTERxChain(sample_rate_hz=fs)
-&gt;&gt;&gt; out = rx.process(rx_waveform)
-&gt;&gt;&gt; print(out["crc_ok"])
+RxResult
+    Struktura koja sadrži dekodirane MIB bitove, CRC status,
+    procijenjene sinhronizacione parametre i debug informacije.
 </pre> 
 </div>
 </div>
 <a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
-<a id="a4c0db9a124bf41d7ccd844f60f3bc951" name="a4c0db9a124bf41d7ccd844f60f3bc951"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a4c0db9a124bf41d7ccd844f60f3bc951">&#9670;&#160;</a></span>crc</h2>
+<a id="af89ae2aecefffa3b8445a35247865962" name="af89ae2aecefffa3b8445a35247865962"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af89ae2aecefffa3b8445a35247865962">&#9670;&#160;</a></span>_PERM_PATTERN</h2>
 
 <div class="memitem">
 <div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
       <table class="memname">
         <tr>
-          <td class="memname">receiver.LTERxChain.LTERxChain.crc</td>
+          <td class="memname">receiver.LTERxChain.LTERxChain._PERM_PATTERN</td>
         </tr>
       </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel static">static</span><span class="mlabel protected">protected</span></span>  </td>
+  </tr>
+</table>
 </div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">=  CRCChecker(</div>
-<div class="line">            poly=0x1021,</div>
-<div class="line">            init=0xFFFF</div>
-<div class="line">        )</div>
+<b>Initial value:</b><div class="fragment"><div class="line">=  np.array(</div>
+<div class="line">        [1, 17, 9, 25, 5, 21, 13, 29, 3, 19, 11, 27, 7, 23, 15, 31,</div>
+<div class="line">         0, 16, 8, 24, 4, 20, 12, 28, 2, 18, 10, 26, 6, 22, 14, 30],</div>
+<div class="line">        dtype=int</div>
+<div class="line">    )</div>
 </div><!-- fragment -->
 </div>
 </div>
-<a id="acda67970773250ac7234c1493d594d35" name="acda67970773250ac7234c1493d594d35"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#acda67970773250ac7234c1493d594d35">&#9670;&#160;</a></span>deratematcher</h2>
+<a id="ab2bef7fbbc4473a92648c67040a15dc2" name="ab2bef7fbbc4473a92648c67040a15dc2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ab2bef7fbbc4473a92648c67040a15dc2">&#9670;&#160;</a></span>pbch_cfg</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">receiver.LTERxChain.LTERxChain.deratematcher</td>
+          <td class="memname">receiver.LTERxChain.LTERxChain.pbch_cfg</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">=  DeRateMatcher(</div>
-<div class="line">            E_rx=1920,</div>
-<div class="line">            N_coded=120</div>
-<div class="line">        )</div>
-</div><!-- fragment -->
-</div>
-</div>
-<a id="aaed1ff6295095c256b2acb3e77240dc4" name="aaed1ff6295095c256b2acb3e77240dc4"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aaed1ff6295095c256b2acb3e77240dc4">&#9670;&#160;</a></span>ofdm_demod</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">receiver.LTERxChain.LTERxChain.ofdm_demod</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-<b>Initial value:</b><div class="fragment"><div class="line">=  OFDMDemodulator(</div>
+<b>Initial value:</b><div class="fragment"><div class="line">=  PBCHConfig(</div>
 <div class="line">            ndlrb=self.ndlrb,</div>
 <div class="line">            normal_cp=self.normal_cp,</div>
-<div class="line">            new_fft_size=fft_size</div>
+<div class="line">            pbch_symbol_indices=pbch_symbol_indices,</div>
+<div class="line">            pbch_symbols_to_extract=240 * self.pbch_spread_subframes,</div>
 <div class="line">        )</div>
 </div><!-- fragment -->
 </div>
@@ -270,7 +296,9 @@ Ova funkcija se tipično poziva jednom po RX signalu:
       </table>
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">=  PSSSynchronizer(</div>
-<div class="line">            sample_rate_hz=self.sample_rate_hz</div>
+<div class="line">            sample_rate_hz=self.sample_rate_hz,</div>
+<div class="line">            ndlrb=self.ndlrb,</div>
+<div class="line">            normal_cp=self.normal_cp,</div>
 <div class="line">        )</div>
 </div><!-- fragment -->
 </div>
@@ -288,8 +316,8 @@ Ova funkcija se tipično poziva jednom po RX signalu:
 </div><div class="memdoc">
 <b>Initial value:</b><div class="fragment"><div class="line">=  ViterbiDecoder(</div>
 <div class="line">            constraint_len=7,</div>
-<div class="line">            generators=[0o133, 0o171, 0o164],</div>
-<div class="line">            rate=1/3</div>
+<div class="line">            generators=[0o133, 0o171, 0o165],</div>
+<div class="line">            rate=1 / 3,</div>
 <div class="line">        )</div>
 </div><!-- fragment -->
 </div>

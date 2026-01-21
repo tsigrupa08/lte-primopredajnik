@@ -146,60 +146,129 @@ Testiranje i vizualizacije</h2>
 <li>Vizualizacije: PSS korelacija, RX grid, konstelacije i prikaz “od bitova do bitova”</li>
 </ul>
 <hr  />
-<h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
-Struktura projekta</h1>
-<div class="fragment"><div class="line">lte-primopredajnik/</div>
-<div class="line">├─ channel/</div>
-<div class="line">├─ common/</div>
-<div class="line">├─ docs/</div>
-<div class="line">├─ examples/</div>
-<div class="line">├─ gui/</div>
-<div class="line">├─ LTE_system_/</div>
-<div class="line">├─ receiver/</div>
-<div class="line">├─ tests/</div>
-<div class="line">└─ transmitter/</div>
-</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
-Trenutno stanje projekta</h1>
-<p>Projekat je u funkcionalnoj fazi i implementiran je kompletan osnovni LTE lanac za simulaciju komunikacije.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+Opis direktorija</h2>
 <ul>
-<li>Implementiran je predajnik (TX) sa generisanjem PSS sekvenci, PBCH kodiranjem i OFDM modulacijom.</li>
-<li>Implementiran je kanal sa AWGN šumom i frekvencijskim ofsetom (CFO).</li>
-<li>Implementiran je prijemnik (RX) koji obuhvata PSS sinhronizaciju, OFDM demodulaciju, ekstrakciju PBCH simbola, demapiranje, dekodiranje i CRC provjeru.</li>
-<li>Omogućeno je end-to-end testiranje kompletnog sistema (TX → Channel → RX).</li>
-<li>Razvijeni su unit testovi i end-to-end testovi za validaciju funkcionalnosti.</li>
-<li>Dostupne su vizualizacije ključnih faza sistema (PSS korelacija, RX grid, konstelacije i prijem bitova).</li>
+<li><span class="tt">transmitter/</span> – LTE predajnik: PSS generisanje, PBCH lanac, OFDM modulacija <br  />
+</li>
+<li><span class="tt">channel/</span> – Model kanala (AWGN, CFO) <br  />
+</li>
+<li><span class="tt">receiver/</span> – LTE prijemnik: sinhronizacija, demodulacija, dekodiranje <br  />
+</li>
+<li><span class="tt">LTE_system_/</span> – End-to-end LTE sistem (TX → Channel → RX integracija) <br  />
+</li>
+<li><span class="tt">common/</span> – Zajedničke util funkcije, konstante i pomoćni moduli <br  />
+</li>
+<li><span class="tt">tests/</span> – Unit i end-to-end testovi (pytest) <br  />
+</li>
+<li><span class="tt">examples/</span> – Primjeri korištenja i demonstracione skripte <br  />
+</li>
+<li><span class="tt">gui/</span> – Grafički interfejs za vizualizaciju i interaktivno pokretanje <br  />
+</li>
+<li><span class="tt">docs/</span> – Tehnička dokumentacija i reference</li>
 </ul>
-<p>Projekat je spreman za dalje proširenje, optimizaciju i analizu performansi.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+Tok obrade signala (workflow)</h1>
+<ol type="1">
+<li>Generisanje PBCH/MIB informacija <br  />
+</li>
+<li>Kodiranje (CRC + konvolucijsko kodiranje) <br  />
+</li>
+<li>QPSK modulacija i mapiranje u resursni grid <br  />
+</li>
+<li>OFDM modulacija (IFFT + CP) <br  />
+</li>
+<li>Prolazak kroz kanal (AWGN + CFO) <br  />
+</li>
+<li>PSS sinhronizacija i procjena frekvencijskog ofseta <br  />
+</li>
+<li>OFDM demodulacija (CP removal + FFT) <br  />
+</li>
+<li>Ekstrakcija PBCH simbola <br  />
+</li>
+<li>Demapiranje i dekodiranje (Viterbi + CRC) <br  />
+</li>
+<li>Evaluacija ispravnosti prijema (CRC, BER)</li>
+</ol>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
+Trenutno stanje projekta</h1>
+<p>Projekat je u potpunosti završen i predstavlja kompletno implementiran LTE primopredajni sistem za simulaciju digitalne komunikacije u osnovnom opsegu.</p><ul>
+<li>Implementiran je predajnik (TX) koji obuhvata generisanje PSS sekvenci, PBCH kodiranje, mapiranje simbola i OFDM modulaciju u skladu sa osnovnim LTE principima.</li>
+<li>Implementiran je kanal prenosa, uključujući dodavanje AWGN šuma i modeliranje frekvencijskog ofseta (Carrier Frequency Offset – CFO), čime su obuhvaćeni ključni degradirajući efekti realnog bežičnog kanala.</li>
+<li>Implementiran je potpuno funkcionalan prijemnik (RX) koji uključuje:</li>
+</ul>
+<ol type="1">
+<li>PSS baziranu vremensku i frekvencijsku sinhronizaciju,</li>
+<li>OFDM demodulaciju,</li>
+<li>ekstrakciju PBCH simbola iz primljenog resursnog grida, demapiranje, dekodiranje i CRC provjeru PBCH informacije.</li>
+</ol>
+<p>Omogućeno je end-to-end testiranje kompletnog LTE sistema (TX → Channel → RX), pri čemu se potvrđuje ispravna rekonstrukcija prenesenih informacija na prijemu. Razvijen je sveobuhvatan skup unit testova i end-to-end testova koji validiraju ispravnost pojedinačnih modula, kao i ukupnu funkcionalnost sistema. Dostupne su vizualizacije ključnih faza prijema i obrade signala, uključujući PSS korelaciju, prijemni resursni grid, konstelacione dijagrame i rekonstrukciju primljenih bitova, što omogućava detaljnu analizu ponašanja sistema.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
 Pokretanje projekta</h1>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
 Kloniranje repozitorija</h2>
 <ul>
 <li>git clone <a href="https://github.com/tsigrupa08/lte-primopredajnik.git">https://github.com/tsigrupa08/lte-primopredajnik.git</a></li>
 <li>cd lte-primopredajnik</li>
 </ul>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
-Kreiranje virtualnog okruženja</h2>
-<ul>
-<li>python -m venv .venv</li>
-</ul>
 <h2 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
+Kreiranje virtualnog okruženja</h2>
+<p>Radi izolacije zavisnosti projekta i osiguranja reproduktivnog okruženja za razvoj i testiranje, preporučuje se korištenje Python virtualnog okruženja.</p>
+<p>Virtualno okruženje omogućava:</p><ul>
+<li>odvajanje projektnih zavisnosti od sistemskog Python-a</li>
+<li>izbjegavanje konflikata između verzija biblioteka</li>
+<li>jednostavno pokretanje projekta na različitim računarima i operativnim sistemima</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
 Aktivacija virtualnog okruženja:</h2>
 <ul>
 <li>Linux / macOS: source .venv/bin/activate</li>
 <li>Windows: .venv\Scripts\activate</li>
 </ul>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
 Instalacija zavisnosti</h2>
+<p>Nakon kreiranja i aktivacije virtualnog okruženja, potrebno je instalirati sve Python biblioteke koje projekat koristi. Spisak zavisnosti definisan je u fajlu equirements.txt.</p>
 <ul>
 <li>pip install -r requirements.txt</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
-Testiranje</h1>
-<p>Testovi koriste pytest i pokreću se iz terminala naredbom 'pytest'.</p>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
+Pokretanje GUI aplikacije</h1>
+<p>GUI aplikacija omogućava interaktivno pokretanje LTE TX → Channel → RX lanca uz grafički prikaz ključnih faza obrade signala.</p>
+<ul>
+<li>python gui/gui_tx_channel.py</li>
+</ul>
+<p>Prije pokretanja GUI aplikacije potrebno je aktivirati virtualno okruženje u kojem su instalirane sve zavisnosti projekta.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md19"></a>
+Testiranje</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md20"></a>
+Vrste testova</h2>
+<p><b>Unit testovi</b></p><ul>
+<li>provjera funkcionalnosti pojedinačnih blokova (TX, Channel, RX)</li>
+<li>testiranje PSS generisanja i detekcije</li>
+<li>testiranje PBCH kodiranja i dekodiranja</li>
+<li>validacija OFDM modulacije i demodulacije</li>
+<li>CRC provjera ispravnosti prijema</li>
+</ul>
+<p><b>End-to-end testovi</b></p><ul>
+<li>testiranje kompletnog LTE lanca (TX → Channel → RX)</li>
+<li>provjera ispravnosti dekodiranih PBCH/MIB informacija</li>
+<li>evaluacija grešaka u prisustvu šuma i frekvencijskog ofseta</li>
+</ul>
+<p>Testovi obuhvataju i <b>ispravne (happy)</b> i <b>neispravne (unhappy)</b> scenarije, uključujući pogrešnu sinhronizaciju, prisustvo šuma i greške u prijemu.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md21"></a>
+Pokretanje testova</h2>
+<p>Pokretanje svih testova iz korijenskog direktorija projekta:</p><ul>
+<li>pytest</li>
+</ul>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md22"></a>
 Dokumentacija</h1>
-<p>Automatski generisana tehnička dokumentacija (Doxygen): <a href="https://tsigrupa08.github.io/lte-primopredajnik/html/">docs/html/index.html</a>. </p>
+<p>Automatski generisana tehnička dokumentacija (Doxygen): <a href="https://tsigrupa08.github.io/lte-primopredajnik/html/">docs/html/index.html</a>.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md23"></a>
+Zaključak</h1>
+<p>U okviru ovog projekta realizovan je kompletan LTE primopredajni sistem, koji obuhvata sve ključne faze digitalne bežične komunikacije – od generisanja signala na predaji, preko modeliranja kanala, do pouzdane rekonstrukcije informacija na prijemu.</p>
+<p>Implementacijom predajnika, kanala i u potpunosti funkcionalnog prijemnika omogućena je end-to-end simulacija LTE komunikacionog lanca, čime je potvrđena ispravnost međusobne interakcije svih podsistema. Poseban akcenat stavljen je na proces sinhronizacije i dekodiranja na prijemu, koji predstavlja jednu od najzahtjevnijih faza LTE sistema.</p>
+<p>Razvijeni unit testovi i end-to-end testovi dodatno potvrđuju stabilnost i tačnost implementacije, dok dostupne vizualizacije omogućavaju detaljnu analizu ponašanja sistema i olakšavaju razumijevanje pojedinih faza obrade signala.</p>
+<p>Ovim projektom demonstrirana je prak­tična primjena teorijskih koncepata LTE standarda, kao i sposobnost projektovanja, implementacije i verifikacije složenog komunikacionog sistema. Implementirani LTE simulacioni lanac predstavlja čvrstu osnovu za dalja istraživanja, analizu performansi i nadogradnju sistema, te ima značajnu edukativnu i istraživačku vrijednost. </p>
 </div></div><!-- contents -->
 </div><!-- PageDoc -->
 </div><!-- doc-content -->
