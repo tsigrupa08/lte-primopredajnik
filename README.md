@@ -1,4 +1,4 @@
-# LTE Transceiver
+# LTE Primopredajnik
 
 ## Opis projekta
 Ovaj projekat implementira LTE primopredajnik. Cilj projekta je omogućiti simulaciju i/ili
